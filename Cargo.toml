@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+bytemuck = "1.21.0"
 colored = "3.0.0"
 log = "0.4.25"
 ndarray = "0.16.1"

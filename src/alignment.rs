@@ -1,8 +1,10 @@
-use std::{cmp, fmt::Display};
+use std::{cmp, fmt::Display, ops::Add};
 
+use bytemuck::Zeroable;
 use colored::Colorize;
 use log::{debug, info, warn};
 use ndarray::{Array2, ShapeBuilder};
+use num::Zero;
 use spinoff::{spinners, Color, Spinner};
 
 use crate::sequence::{Sequence, SequenceContainer, SequenceOperations};
@@ -19,12 +21,48 @@ const NEGATIVE_INF: i64 = i64::MIN + (GAP_PENALTY * GAP_PENALTY) + (H * H);
 const DISP_MAX_WIDTH: usize = 200;
 
 /// Cell in the dynamic programming table
-#[derive(Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone, Copy, Default)]
+#[repr(C)]
 struct AlignmentCell {
     insert_score: i64,
     delete_score: i64,
     sub_score: i64,
     is_match: bool,
+}
+
+impl Add for AlignmentCell {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        AlignmentCell {
+            insert_score: self.insert_score + other.insert_score,
+            delete_score: self.delete_score + other.delete_score,
+            sub_score: self.sub_score + other.sub_score,
+            is_match: self.is_match && other.is_match,
+        }
+    }
+}
+
+impl Zero for AlignmentCell {
+    fn zero() -> Self {
+        AlignmentCell {
+            insert_score: 0,
+            delete_score: 0,
+            sub_score: 0,
+            is_match: false,
+        }
+    }
+
+    fn is_zero(&self) -> bool {
+        self.insert_score == 0 && self.delete_score == 0 && self.sub_score == 0 && !self.is_match
+    }
+
+    fn set_zero(&mut self) {
+        self.insert_score = 0;
+        self.delete_score = 0;
+        self.sub_score = 0;
+        self.is_match = false;
+    }
 }
 
 /// Handles score calculation for alignment cells
@@ -85,14 +123,8 @@ pub fn global_alignment(sequence_container: SequenceContainer) -> AlignedSequenc
     let s2_len = sequence_container.sequences[1].sequence.len();
 
     // create 2D array to store dynamic programming results
-    let mut sequence_table: Array2<AlignmentCell> = Array2::from_elem(
-        (s1_len, s2_len).f(),
-        AlignmentCell {
-            insert_score: 0,
-            delete_score: 0,
-            sub_score: 0,
-            is_match: false,
-        },
+    let mut sequence_table: Array2<AlignmentCell> = Array2::zeros(
+        (s1_len, s2_len).f()
     );
 
     // log

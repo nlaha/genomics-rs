@@ -36,7 +36,7 @@ fn main() {
         sequences: Vec::new(),
     };
 
-    sequence_container.from_fasta("test_data/Human-Mouse-BRCA2-cds.fasta");
+    sequence_container.from_fasta("test_data/Opsin1_colorblindness_gene.fasta");
 
     let aligned_sequences = alignment::global_alignment(sequence_container);
 

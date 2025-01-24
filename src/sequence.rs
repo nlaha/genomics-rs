@@ -87,6 +87,6 @@ impl SequenceOperations for SequenceContainer {
     }
 
     fn is_match(&self, i: usize, j: usize) -> bool {
-        self.sequences[0].sequence.chars().nth(i) == self.sequences[1].sequence.chars().nth(j)
+        self.sequences[0].sequence.bytes().nth(i) == self.sequences[1].sequence.bytes().nth(j)
     }
 }
