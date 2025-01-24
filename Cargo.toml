@@ -19,3 +19,4 @@ debug = true
 opt-level = 3
 codegen-units = 1
 lto = false
+debug = true

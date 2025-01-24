@@ -18,6 +18,7 @@ const NEGATIVE_INF: i64 = i64::MIN + (GAP_PENALTY * GAP_PENALTY) + (H * H);
 
 const DISP_MAX_WIDTH: usize = 200;
 
+/// Cell in the dynamic programming table
 #[derive(Debug, Clone, Copy)]
 struct AlignmentCell {
     insert_score: i64,
@@ -26,6 +27,7 @@ struct AlignmentCell {
     is_match: bool,
 }
 
+/// Handles score calculation for alignment cells
 pub trait ComputeScore {
     fn substitution(&self) -> i64;
     fn score_max(&self, i_mod: i64, s_mod: i64, d_mod: i64) -> i64;
