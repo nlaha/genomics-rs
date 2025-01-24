@@ -36,13 +36,9 @@ fn main() {
         sequences: Vec::new(),
     };
 
-    sequence_container.from_fasta("test_data/Human-Mouse-BRCA2-cds.fasta");
+    sequence_container.from_fasta("test_data/test1.fasta");
 
     let aligned_sequences = alignment::global_alignment(sequence_container);
-
-    // print original and aligned sequences
-    info!("{}", aligned_sequences.s1);
-    info!("{}", aligned_sequences.s2);
 
     info!("{}", aligned_sequences);
 }

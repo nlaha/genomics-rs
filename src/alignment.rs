@@ -3,6 +3,7 @@ use std::{cmp, fmt::Display};
 use colored::Colorize;
 use log::{debug, info, warn};
 use ndarray::{Array2, ShapeBuilder};
+use spinoff::{spinners, Color, Spinner};
 
 use crate::sequence::{Sequence, SequenceContainer, SequenceOperations};
 
@@ -14,6 +15,8 @@ const H: i64 = -5;
 
 // we need to offset our 'negative infinity' to avoid overflow errors
 const NEGATIVE_INF: i64 = i64::MIN + (GAP_PENALTY * GAP_PENALTY) + (H * H);
+
+const DISP_MAX_WIDTH: usize = 200;
 
 #[derive(Debug, Clone, Copy)]
 struct AlignmentCell {
@@ -45,67 +48,28 @@ impl ComputeScore for AlignmentCell {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum AlignmentChoice {
     Match,
     Mismatch,
     Insert,
     Delete,
+    OpenInsert,
+    OpenDelete,
 }
 
 pub struct AlignedSequences {
     pub s1: Sequence,
     pub s2: Sequence,
     pub alignment: Vec<(AlignmentChoice, usize, usize)>,
-}
 
-impl Display for AlignedSequences {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut s1_out: String = String::new();
-        let mut align_out: String = String::new();
-        let mut s2_out: String = String::new();
-
-        let mut s1_idx = 0;
-        let mut s2_idx = 0;
-        let mut alignement_iter = self.alignment.iter().rev();
-
-        while s1_idx < self.s1.sequence.len() || s2_idx < self.s2.sequence.len() {
-            let choice = alignement_iter.next();
-
-            let s1_base = self.s1.sequence.as_bytes()[s1_idx] as char;
-            let s2_base = self.s2.sequence.as_bytes()[s2_idx] as char;
-
-            // print s1 first
-            match choice {
-                Some((AlignmentChoice::Insert, _, _)) => s1_out.push('-'),
-                _ => {
-                    s1_out.push(s1_base);
-                    s1_idx += 1;
-                }
-            }
-
-            // then print the alignment row
-            match choice {
-                Some((AlignmentChoice::Match, _, _)) => align_out.push('|'),
-                Some((AlignmentChoice::Mismatch, _, _)) => align_out.push('x'),
-                Some((AlignmentChoice::Insert, _, _)) => align_out.push(' '),
-                Some((AlignmentChoice::Delete, _, _)) => align_out.push(' '),
-                None => align_out.push(' '),
-            }
-
-            // then print s2
-            match choice {
-                Some((AlignmentChoice::Delete, _, _)) => s2_out.push('-'),
-                _ => {
-                    s2_out.push(s2_base);
-                    s2_idx += 1;
-                }
-            }
-        }
-
-        writeln!(f, "\n\n{}\n{}\n{}", s1_out, align_out, s2_out)
-    }
+    // stats
+    pub score: i64,
+    pub matches: usize,
+    pub mismatches: usize,
+    pub gap_extensions: usize,
+    pub opening_gaps: usize,
 }
 
 /// Perform global alignment of two sequences
@@ -133,7 +97,13 @@ pub fn global_alignment(sequence_container: SequenceContainer) -> AlignedSequenc
     info!("Sequence table shape: {:?}", sequence_table.shape());
     info!(
         "Sequence table size (KB): {}",
-        std::mem::size_of_val(&sequence_table) as f64 / 1024.0
+        sequence_table.len() * std::mem::size_of::<AlignmentCell>() / 1024
+    );
+
+    let mut sequence_table_spinner = Spinner::new(
+        spinners::Dots,
+        "Computing sequence table...",
+        Color::Magenta,
     );
 
     // start timer
@@ -183,6 +153,8 @@ pub fn global_alignment(sequence_container: SequenceContainer) -> AlignedSequenc
 
     let end_table_init: std::time::Instant = std::time::Instant::now();
 
+    sequence_table_spinner.success("Sequence table computed");
+
     info!(
         "Table initialization complete, time taken: {}us",
         (end_table_init - start_table_init).as_micros()
@@ -194,6 +166,25 @@ pub fn global_alignment(sequence_container: SequenceContainer) -> AlignedSequenc
         sequence_table[[s1_len - 1, s2_len - 1]].score_max(0, 0, 0)
     );
 
+    let aligned_sequences = retrace(sequence_container, sequence_table);
+
+    return aligned_sequences;
+}
+
+/// Performs a retrace of the optimal alignment path from the sequence table
+fn retrace(
+    sequence_container: SequenceContainer,
+    sequence_table: ndarray::ArrayBase<ndarray::OwnedRepr<AlignmentCell>, ndarray::Dim<[usize; 2]>>,
+) -> AlignedSequences {
+    let mut retrace_spinner = Spinner::new(
+        spinners::Dots,
+        "Retracing optimal alignment...",
+        Color::Magenta,
+    );
+
+    let s1_len = sequence_container.sequences[0].sequence.len();
+    let s2_len = sequence_container.sequences[1].sequence.len();
+
     // optimal retrace algorithm
     let start_retrace: std::time::Instant = std::time::Instant::now();
 
@@ -202,8 +193,14 @@ pub fn global_alignment(sequence_container: SequenceContainer) -> AlignedSequenc
         s1: sequence_container.sequences[0].clone(),
         s2: sequence_container.sequences[1].clone(),
         alignment: Vec::new(),
+        score: sequence_table[[i, j]].score_max(0, 0, 0),
+        matches: 0,
+        mismatches: 0,
+        gap_extensions: 0,
+        opening_gaps: 0,
     };
 
+    let mut last_choice = AlignmentChoice::Match;
     loop {
         let cell = sequence_table[[i, j]];
         let max = cell.score_max(0, 0, 0);
@@ -212,11 +209,15 @@ pub fn global_alignment(sequence_container: SequenceContainer) -> AlignedSequenc
             // top_left move
             val if val == cell.sub_score => {
                 if cell.is_match {
+                    last_choice = AlignmentChoice::Match;
+                    aligned_sequences.matches += 1;
                     aligned_sequences
                         .alignment
                         .push((AlignmentChoice::Match, i, j));
                     debug!("Match found at ({}, {})", i, j);
                 } else {
+                    last_choice = AlignmentChoice::Mismatch;
+                    aligned_sequences.mismatches += 1;
                     aligned_sequences
                         .alignment
                         .push((AlignmentChoice::Mismatch, i, j));
@@ -226,18 +227,32 @@ pub fn global_alignment(sequence_container: SequenceContainer) -> AlignedSequenc
             }
             // left move
             val if val == cell.insert_score => {
-                aligned_sequences
-                    .alignment
-                    .push((AlignmentChoice::Insert, i, j));
+                let choice = if last_choice == AlignmentChoice::Insert {
+                    aligned_sequences.gap_extensions += 1;
+                    AlignmentChoice::Insert
+                } else {
+                    aligned_sequences.opening_gaps += 1;
+                    AlignmentChoice::OpenInsert
+                };
+
+                aligned_sequences.alignment.push((choice, i, j));
                 debug!("Insert found at ({}, {})", i, j);
+                last_choice = AlignmentChoice::Insert;
                 (Some(i), j.checked_sub(1))
             }
             // up move
             val if val == cell.delete_score => {
-                aligned_sequences
-                    .alignment
-                    .push((AlignmentChoice::Delete, i, j));
+                let choice = if last_choice == AlignmentChoice::Delete {
+                    aligned_sequences.gap_extensions += 1;
+                    AlignmentChoice::Delete
+                } else {
+                    aligned_sequences.opening_gaps += 1;
+                    AlignmentChoice::OpenDelete
+                };
+
+                aligned_sequences.alignment.push((choice, i, j));
                 debug!("Delete found at ({}, {})", i, j);
+                last_choice = AlignmentChoice::Delete;
                 (i.checked_sub(1), Some(j))
             }
             _ => panic!("Unexpected score during retrace"),
@@ -253,6 +268,8 @@ pub fn global_alignment(sequence_container: SequenceContainer) -> AlignedSequenc
 
     let end_retrace: std::time::Instant = std::time::Instant::now();
 
+    retrace_spinner.success("Retrace complete");
+
     info!(
         "Retrace complete, time taken: {}us",
         (end_retrace - start_retrace).as_micros()
@@ -263,10 +280,127 @@ pub fn global_alignment(sequence_container: SequenceContainer) -> AlignedSequenc
         aligned_sequences.alignment.len()
     );
 
-    info!("Computing sequence table visualization...");
-    print_sequence_table(sequence_container, sequence_table, &aligned_sequences, 100);
+    // skip visualization if the table is too large
+    if sequence_table.shape()[0] < DISP_MAX_WIDTH && sequence_table.shape()[1] < DISP_MAX_WIDTH * 10
+    {
+        info!("Computing sequence table visualization...");
+        print_sequence_table(sequence_container, sequence_table, &aligned_sequences);
+    } else {
+        warn!("Sequence table too large to visualize");
+    }
 
-    return aligned_sequences;
+    aligned_sequences
+}
+
+impl Display for AlignedSequences {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // print original and aligned sequences if they're not too long
+        if self.s1.sequence.len() <= DISP_MAX_WIDTH && self.s2.sequence.len() <= DISP_MAX_WIDTH {
+            info!("Original Sequences:");
+            info!("{}", self.s1);
+            info!("{}", self.s2);
+        } else {
+            warn!("Sequences are too long to display.");
+        }
+
+        let mut s1_out: String = String::new();
+        let mut align_out: String = String::new();
+        let mut s2_out: String = String::new();
+
+        let mut s1_idx = 0;
+        let mut s2_idx = 0;
+        let mut alignement_iter = self.alignment.iter().rev();
+
+        let mut horizontal_len = 0;
+        let mut align_idx = 0;
+
+        while align_idx < self.alignment.len() {
+            let choice = alignement_iter.next();
+
+            if horizontal_len > DISP_MAX_WIDTH {
+                // print the start/end index we're on
+                writeln!(f, "\n\n{}-{}:\n", align_idx - DISP_MAX_WIDTH, align_idx)?;
+                // print the current chunk
+                writeln!(f, "{}\n{}\n{}", s1_out, align_out, s2_out)?;
+                // reset the output strings
+                s1_out.clear();
+                align_out.clear();
+                s2_out.clear();
+                horizontal_len = 0;
+            }
+
+            // print s1 first
+            match choice {
+                Some((AlignmentChoice::Insert | AlignmentChoice::OpenInsert, _, _)) => {
+                    s1_out.push('-')
+                }
+                _ => {
+                    s1_out.push(self.s1.sequence.as_bytes()[s1_idx] as char);
+                    s1_idx += 1;
+                }
+            }
+
+            // then print the alignment row
+            match choice {
+                Some((AlignmentChoice::Match, _, _)) => align_out.push('|'),
+                Some((AlignmentChoice::Mismatch, _, _)) => align_out.push('x'),
+                Some((AlignmentChoice::Insert, _, _)) => align_out.push(' '),
+                Some((AlignmentChoice::Delete, _, _)) => align_out.push(' '),
+                Some((AlignmentChoice::OpenInsert | AlignmentChoice::OpenDelete, _, _)) => {
+                    align_out.push('%')
+                }
+                None => align_out.push(' '),
+            }
+
+            // then print s2
+            match choice {
+                Some((AlignmentChoice::Delete | AlignmentChoice::OpenDelete, _, _)) => {
+                    s2_out.push('-')
+                }
+                _ => {
+                    s2_out.push(self.s2.sequence.as_bytes()[s2_idx] as char);
+                    s2_idx += 1;
+                }
+            }
+
+            horizontal_len += 1;
+            align_idx += 1;
+        }
+
+        writeln!(f, "\n\n{}-{}:\n", align_idx - s1_out.len(), align_idx)?;
+        writeln!(f, "{}\n{}\n{}", s1_out, align_out, s2_out)?;
+
+        // print stats report
+        writeln!(f, "\n\nAlignment Score: {}", self.score)?;
+        writeln!(
+            f,
+            "Matches: {}/{} ({:.2}%)",
+            self.matches,
+            align_idx,
+            (self.matches as f64 / align_idx as f64) * 100.0
+        )?;
+        writeln!(
+            f,
+            "Mismatches: {}/{} ({:.2}%)",
+            self.mismatches,
+            align_idx,
+            (self.mismatches as f64 / align_idx as f64) * 100.0
+        )?;
+        writeln!(
+            f,
+            "Gap Extensions: {}/{} ({:.2}%)",
+            self.gap_extensions,
+            align_idx,
+            (self.gap_extensions as f64 / align_idx as f64) * 100.0
+        )?;
+        writeln!(
+            f,
+            "Opening Gaps: {}/{} ({:.2}%)",
+            self.opening_gaps,
+            align_idx,
+            (self.opening_gaps as f64 / align_idx as f64) * 100.0
+        )
+    }
 }
 
 /// Prints the sequence table with alignment path for visualization
@@ -274,7 +408,6 @@ fn print_sequence_table(
     sequence_container: SequenceContainer,
     sequence_table: ndarray::ArrayBase<ndarray::OwnedRepr<AlignmentCell>, ndarray::Dim<[usize; 2]>>,
     aligned_sequences: &AlignedSequences,
-    downsample: usize,
 ) {
     let s1_len = sequence_container.sequences[0].sequence.len();
     let s2_len = sequence_container.sequences[1].sequence.len();
@@ -283,7 +416,7 @@ fn print_sequence_table(
 
     // print the columns (bases of the second sequence)
     print!(" ",);
-    for i in (0..s2_len).step_by(downsample) {
+    for i in 0..s2_len {
         print!(
             "{}",
             sequence_container.sequences[1]
@@ -296,7 +429,7 @@ fn print_sequence_table(
     println!();
 
     // display dynamic programming table
-    for i in (0..s1_len).step_by(downsample) {
+    for i in 0..s1_len {
         // print sequence base
         print!(
             "{}",
@@ -306,20 +439,10 @@ fn print_sequence_table(
                 .nth(i)
                 .unwrap()
         );
-        for j in (0..s2_len).step_by(downsample) {
+        for j in 0..s2_len {
             // pick character from BRIGHT_STRING based on the score
             let brightness_char = {
                 let score: i64 = sequence_table[[i, j]].score_max(0, 0, 0);
-                // average score if downsample is greater than 1
-                let score = if downsample > 1 {
-                    let mut sum = 0;
-                    for k in 0..downsample {
-                        sum += sequence_table[[i, j + k]].score_max(0, 0, 0);
-                    }
-                    sum / downsample as i64
-                } else {
-                    score
-                };
 
                 if score > 5 || sequence_table[[i, j]].is_match {
                     if sequence_table[[i, j]].is_match {
@@ -343,6 +466,8 @@ fn print_sequence_table(
                 Some((AlignmentChoice::Mismatch, _, _)) => print!("{}", "X".red()),
                 Some((AlignmentChoice::Insert, _, _)) => print!("{}", "I".blue()),
                 Some((AlignmentChoice::Delete, _, _)) => print!("{}", "D".cyan()),
+                Some((AlignmentChoice::OpenInsert, _, _)) => print!("{}", "I".blue().bold()),
+                Some((AlignmentChoice::OpenDelete, _, _)) => print!("{}", "D".cyan().bold()),
                 None => print!("{}", brightness_char),
             }
         }
