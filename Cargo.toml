@@ -1,0 +1,11 @@
+[package]
+name = "genomics-rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+log = "0.4.25"
+ndarray = "0.16.1"
+
+[profile.dev]
+debug=true
