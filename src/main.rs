@@ -21,7 +21,6 @@ fn main() {
     // make it green with terminal escape codes
     println!(
         r#"
-        \x1b[38;5;92m
         GENOME-RS
         -. .-.   .-. .-.   .-. .-.   .  
         ||\|||\ /|||\|||\ /|||\|||\ /|
