@@ -1,12 +1,19 @@
-use log::{error, info, trace, warn};
-use std::collections::HashMap;
+use log::{debug, error, info, trace, warn};
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 
+/// A struct to hold a FASTA sequence and its name.
+#[derive(Debug, Clone)]
+pub struct FastaSequence {
+    pub name: String,
+    pub sequence: String,
+}
+
 /// Load one or more sequences from a FASTA file.
-pub fn load_sequences(filepath: &str) -> HashMap<String, String> {
-    let mut sequences: HashMap<String, String> = HashMap::new();
+/// @param filepath: Path to the FASTA file
+pub fn load_sequences(filepath: &str) -> Vec<FastaSequence> {
+    let mut sequences: Vec<FastaSequence> = Vec::new();
     let mut sequence_name: Option<String> = None;
 
     // read file line by line
@@ -22,17 +29,17 @@ pub fn load_sequences(filepath: &str) -> HashMap<String, String> {
                 // get the name minus the '>'
                 let name: String = line[1..].trim().to_string();
                 info!("Sequence Found: {}", name);
-                sequences.insert(name.to_string(), String::new());
+                sequences.push(FastaSequence {
+                    name: name.clone(),
+                    sequence: String::new(),
+                });
 
                 sequence_name = Some(name);
             } else {
                 if let Some(sequence_name) = sequence_name.as_mut() {
-                    // first trim any whitespace in the line and append to the current sequence
-                    if let Some(seq) = sequences.get_mut(sequence_name) {
-                        seq.push_str(line.trim());
-                    } else {
-                        error!("Malformed FASTA input");
-                    }
+                    // trim any whitespace in the line and append to the current sequence
+                    let sequence = sequences.last_mut().unwrap();
+                    sequence.sequence.push_str(&line.trim());
                 } else {
                     warn!("Sequence data found without a header");
                 }
@@ -40,6 +47,12 @@ pub fn load_sequences(filepath: &str) -> HashMap<String, String> {
         }
     } else {
         error!("Could not open file: {}", filepath);
+    }
+
+    // print some debug info
+    debug!("Loaded {} sequences", sequences.len());
+    for (name, sequence) in sequences.iter().map(|s| (&s.name, &s.sequence)) {
+        debug!("  {}: {} bases", name, sequence.len());
     }
 
     return sequences;

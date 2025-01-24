@@ -15,6 +15,9 @@
           "kind": "bin"
         }
       },
+      "env": {
+        "RUST_LOG": "trace"
+      },
       "args": [],
       "cwd": "${workspaceFolder}"
     },
