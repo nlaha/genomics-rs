@@ -1,26 +1,19 @@
-use std::{cmp, fmt::Display, ops::Add};
+use std::{fmt::Display, ops::Add, simd::{i64x4, num::SimdInt}};
 
-use bytemuck::Zeroable;
 use colored::Colorize;
 use log::{debug, info, warn};
 use ndarray::{Array2, ShapeBuilder};
 use num::Zero;
 use spinoff::{spinners, Color, Spinner};
 
-use crate::sequence::{Sequence, SequenceContainer, SequenceOperations};
-
-// set up parameters
-const MATCH_SCORE: i64 = 1;
-const MISMATCH_SCORE: i64 = -2;
-const GAP_PENALTY: i64 = -2;
-const H: i64 = -5;
-
-// we need to offset our 'negative infinity' to avoid overflow errors
-const NEGATIVE_INF: i64 = i64::MIN + (GAP_PENALTY * GAP_PENALTY) + (H * H);
+use crate::{config::Scores, sequence::{Sequence, SequenceContainer, SequenceOperations}};
 
 const DISP_MAX_WIDTH: usize = 200;
 
 /// Cell in the dynamic programming table
+/// * `insert_score` - score for an insertion
+/// * `delete_score` - score for a deletion
+/// * `sub_score` - score for a substitution
 #[derive(PartialEq, Debug, Clone, Copy, Default)]
 #[repr(C)]
 struct AlignmentCell {
@@ -67,24 +60,40 @@ impl Zero for AlignmentCell {
 
 /// Handles score calculation for alignment cells
 pub trait ComputeScore {
-    fn substitution(&self) -> i64;
+    fn substitution(&self, s_match: i64, s_mismatch: i64) -> i64;
     fn score_max(&self, i_mod: i64, s_mod: i64, d_mod: i64) -> i64;
 }
 
 impl ComputeScore for AlignmentCell {
-    fn substitution(&self) -> i64 {
+
+    /// Computes the substitution score for the cell
+    /// * `s_match` - score for a match
+    /// * `s_mismatch` - score for a mismatch
+    /// * Returns the substitution score
+    fn substitution(&self, s_match: i64, s_mismatch: i64) -> i64 {
         if self.is_match {
-            MATCH_SCORE
+            s_match
         } else {
-            MISMATCH_SCORE
+            s_mismatch
         }
     }
 
+    /// Computes the maximum score for the cell
+    /// * `i_mod` - insertion score modifier
+    /// * `s_mod` - substitution score modifier
+    /// * `d_mod` - deletion score modifier
+    /// * Returns the maximum score (where the modifiers are applied to each)
     fn score_max(&self, i_mod: i64, s_mod: i64, d_mod: i64) -> i64 {
-        cmp::max(
-            self.insert_score + i_mod,
-            cmp::max(self.sub_score + s_mod, self.delete_score + d_mod),
-        )
+        let v: std::simd::Simd<i64, 4> = i64x4::from_array(
+            [
+                self.insert_score + i_mod,
+                self.sub_score + s_mod, 
+                self.delete_score + d_mod, 
+                i64::MIN
+            ]
+        );
+
+        v.reduce_max()
     }
 }
 
@@ -113,11 +122,16 @@ pub struct AlignedSequences {
 }
 
 /// Perform global alignment of two sequences
-pub fn global_alignment(sequence_container: SequenceContainer) -> AlignedSequences {
+/// * `sequence_container` - container struct containing two sequences
+/// * `scores` - scoring parameters
+pub fn global_alignment(sequence_container: SequenceContainer, scores: Scores) -> AlignedSequences {
     // if more than two sequences are found
     if sequence_container.sequences.len() > 2 {
         warn!("More than two sequences found. Only the first two will be used.");
     }
+
+    // we need to offset our 'negative infinity' to avoid overflow errors
+    let negative_inf: i64 = i64::MIN + num::abs(scores.g + scores.h);
 
     let s1_len = sequence_container.sequences[0].sequence.len();
     let s2_len = sequence_container.sequences[1].sequence.len();
@@ -156,16 +170,16 @@ pub fn global_alignment(sequence_container: SequenceContainer) -> AlignedSequenc
                 },
                 // column
                 (i, 0) => AlignmentCell {
-                    insert_score: NEGATIVE_INF,
-                    delete_score: H + (i as i64 * GAP_PENALTY),
-                    sub_score: NEGATIVE_INF,
+                    insert_score: negative_inf,
+                    delete_score: scores.h + (i as i64 * scores.g),
+                    sub_score: negative_inf,
                     is_match: sequence_container.is_match(i, j),
                 },
                 // row
                 (0, j) => AlignmentCell {
-                    insert_score: H + (j as i64 * GAP_PENALTY),
-                    delete_score: NEGATIVE_INF,
-                    sub_score: NEGATIVE_INF,
+                    insert_score: scores.h + (j as i64 * scores.g),
+                    delete_score: negative_inf,
+                    sub_score: negative_inf,
                     is_match: sequence_container.is_match(i, j),
                 },
                 (i, j) => {
@@ -175,9 +189,17 @@ pub fn global_alignment(sequence_container: SequenceContainer) -> AlignedSequenc
                     let top = sequence_table[[i - 1, j]];
 
                     AlignmentCell {
-                        insert_score: left.score_max(GAP_PENALTY, H + GAP_PENALTY, H + GAP_PENALTY),
-                        delete_score: top.score_max(H + GAP_PENALTY, H + GAP_PENALTY, GAP_PENALTY),
-                        sub_score: top_left.substitution() + top_left.score_max(0, 0, 0),
+                        insert_score: left.score_max(
+                            scores.g, 
+                            scores.h + scores.g, 
+                            scores.h + scores.g
+                        ),
+                        delete_score: top.score_max(
+                            scores.h + scores.g, 
+                            scores.h + scores.g, 
+                            scores.g
+                        ),
+                        sub_score: top_left.substitution(scores.s_match, scores.s_mismatch) + top_left.score_max(0, 0, 0),
                         is_match: sequence_container.is_match(i, j),
                     }
                 }
@@ -206,6 +228,8 @@ pub fn global_alignment(sequence_container: SequenceContainer) -> AlignedSequenc
 }
 
 /// Performs a retrace of the optimal alignment path from the sequence table
+/// * `sequence_container` - container struct containing two sequences
+/// * `sequence_table` - the dynamic programming table
 fn retrace(
     sequence_container: SequenceContainer,
     sequence_table: ndarray::ArrayBase<ndarray::OwnedRepr<AlignmentCell>, ndarray::Dim<[usize; 2]>>,
@@ -480,9 +504,9 @@ fn print_sequence_table(
 
                 if score > 5 || sequence_table[[i, j]].is_match {
                     if sequence_table[[i, j]].is_match {
-                        format!("M").dimmed()
+                        format!("m").dimmed()
                     } else {
-                        format!("X").dimmed()
+                        format!("x").dimmed()
                     }
                 } else {
                     format!(".").dimmed()

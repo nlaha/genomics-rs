@@ -39,7 +39,7 @@ pub trait SequenceOperations {
 
 impl SequenceOperations for SequenceContainer {
     /// Load one or more sequences from a FASTA file.
-    /// @param filepath: Path to the FASTA file
+    /// * `filepath` - The path to the FASTA file.
     fn from_fasta(&mut self, filepath: &str) {
         let mut sequences: Vec<Sequence> = Vec::new();
         let mut sequence_name: Option<String> = None;

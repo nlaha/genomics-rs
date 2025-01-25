@@ -1,4 +1,7 @@
+#![feature(portable_simd)]
+
 use colored::Colorize;
+use config::Config;
 use log::info;
 use pretty_env_logger;
 use sequence::{SequenceContainer, SequenceOperations};
@@ -6,6 +9,7 @@ use std::env;
 
 mod alignment;
 mod sequence;
+mod config;
 
 fn main() {
     // set default log level to trace
@@ -32,13 +36,16 @@ fn main() {
         .bright_blue()
     );
 
+    // load config
+    let config: Config = config::get_config("config.toml");
+
     let mut sequence_container: SequenceContainer = SequenceContainer {
         sequences: Vec::new(),
     };
 
-    sequence_container.from_fasta("test_data/Opsin1_colorblindness_gene.fasta");
+    sequence_container.from_fasta(config.fasta.path.as_str());
 
-    let aligned_sequences = alignment::global_alignment(sequence_container);
+    let aligned_sequences = alignment::global_alignment(sequence_container, config.scores);
 
     info!("{}", aligned_sequences);
 }
