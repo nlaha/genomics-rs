@@ -4,7 +4,7 @@ use log::{error, info};
 use serde_derive::Deserialize;
 
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 #[serde(rename = "scores")]
 pub struct Scores {
     pub s_match: i64,

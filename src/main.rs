@@ -8,8 +8,8 @@ use sequence::{SequenceContainer, SequenceOperations};
 use std::env;
 
 mod alignment;
-mod sequence;
 mod config;
+mod sequence;
 
 fn main() {
     // set default log level to trace
@@ -45,7 +45,13 @@ fn main() {
 
     sequence_container.from_fasta(config.fasta.path.as_str());
 
-    let aligned_sequences = alignment::global_alignment(sequence_container, config.scores);
+    info!("{}", "Global Alignment".bright_green());
+    let global_alignment = alignment::align_sequences(&sequence_container, &config.scores, false);
 
-    info!("{}", aligned_sequences);
+    info!("{}", global_alignment);
+
+    info!("{}", "Local Alignment".bright_purple());
+    let local_alignment = alignment::align_sequences(&sequence_container, &config.scores, true);
+
+    info!("{}", local_alignment);
 }

@@ -28,6 +28,7 @@ where
     Ok(io::BufReader::new(file).lines())
 }
 
+#[derive(Debug, Clone)]
 pub struct SequenceContainer {
     pub sequences: Vec<Sequence>,
 }
