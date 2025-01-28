@@ -544,8 +544,8 @@ fn print_sequence_table(
                 .unwrap()
         );
         for j in 0..s2_len {
-            // pick character from BRIGHT_STRING based on the score
-            let brightness_char = {
+            // compute a character for visualization
+            let display_char = {
                 let score: i64 = sequence_table[[i, j]].score_max(0, 0, 0, false);
 
                 if score > 5 || sequence_table[[i, j]].is_match {
@@ -572,7 +572,7 @@ fn print_sequence_table(
                 Some((AlignmentChoice::Delete, _, _)) => print!("{}", "D".cyan()),
                 Some((AlignmentChoice::OpenInsert, _, _)) => print!("{}", "I".blue().bold()),
                 Some((AlignmentChoice::OpenDelete, _, _)) => print!("{}", "D".cyan().bold()),
-                None => print!("{}", brightness_char),
+                None => print!("{}", display_char),
             }
         }
         println!();
