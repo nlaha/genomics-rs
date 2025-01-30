@@ -1,21 +1,18 @@
 use std::{
-    fmt::Display,
     ops::Add,
     simd::{i64x4, num::SimdInt},
 };
 
-use colored::Colorize;
 use log::{debug, info, warn};
 use ndarray::{Array2, ShapeBuilder};
 use num::Zero;
 use spinoff::{spinners, Color, Spinner};
 
 use crate::{
+    alignment::display::print_sequence_table,
     config::Scores,
     sequence::{Sequence, SequenceContainer, SequenceOperations},
 };
-
-const DISP_MAX_WIDTH: usize = 200;
 
 /// Cell in the dynamic programming table
 /// * `insert_score` - score for an insertion
@@ -23,11 +20,11 @@ const DISP_MAX_WIDTH: usize = 200;
 /// * `sub_score` - score for a substitution
 #[derive(PartialEq, Debug, Clone, Copy, Default)]
 #[repr(C)]
-struct AlignmentCell {
-    insert_score: i64,
-    delete_score: i64,
-    sub_score: i64,
-    is_match: bool,
+pub struct AlignmentCell {
+    pub insert_score: i64,
+    pub delete_score: i64,
+    pub sub_score: i64,
+    pub is_match: bool,
 }
 
 impl Add for AlignmentCell {
@@ -300,11 +297,6 @@ fn retrace(
         // get the score of the current cell
         let max = cell.score_max(0, 0, 0, is_local);
 
-        if is_local && max == 0 {
-            info!("Ending local alignment at ({}, {})", i, j);
-            break;
-        }
-
         let (i_opt, j_opt) = match max {
             // top_left move
             val if val == cell.sub_score => {
@@ -358,6 +350,11 @@ fn retrace(
             _ => panic!("Unexpected score during retrace"),
         };
 
+        if is_local && max == 0 {
+            info!("Ending local alignment at ({}, {})", i, j);
+            break;
+        }
+
         (i, j) = match (i_opt, j_opt) {
             (Some(i), Some(j)) => (i, j),
             (None, None) => break,
@@ -380,201 +377,7 @@ fn retrace(
         aligned_sequences.alignment.len()
     );
 
-    // skip visualization if the table is too large
-    if sequence_table.shape()[0] < DISP_MAX_WIDTH && sequence_table.shape()[1] < DISP_MAX_WIDTH * 10
-    {
-        info!("Computing sequence table visualization...");
-        print_sequence_table(sequence_container, sequence_table, &aligned_sequences);
-    } else {
-        warn!("Sequence table too large to visualize");
-    }
+    print_sequence_table(sequence_table, &aligned_sequences);
 
     aligned_sequences
-}
-
-impl Display for AlignedSequences {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // print original and aligned sequences if they're not too long
-        if self.s1.sequence.len() <= DISP_MAX_WIDTH && self.s2.sequence.len() <= DISP_MAX_WIDTH {
-            info!("Original Sequences:");
-            info!("{}", self.s1);
-            info!("{}", self.s2);
-        } else {
-            warn!("Sequences are too long to display.");
-        }
-
-        let mut s1_out: String = String::new();
-        let mut align_out: String = String::new();
-        let mut s2_out: String = String::new();
-
-        let mut s1_idx = 0;
-        let mut s2_idx = 0;
-        let mut alignement_iter = self.alignment.iter().rev();
-
-        let mut horizontal_len = 0;
-        let mut align_idx = 0;
-
-        while align_idx < self.alignment.len() {
-            let choice = alignement_iter.next();
-
-            if horizontal_len > DISP_MAX_WIDTH {
-                // print the start/end index we're on
-                writeln!(f, "\n\n{}-{}:\n", align_idx - DISP_MAX_WIDTH, align_idx)?;
-                // print the current chunk
-                writeln!(f, "{}\n{}\n{}", s1_out, align_out, s2_out)?;
-                // reset the output strings
-                s1_out.clear();
-                align_out.clear();
-                s2_out.clear();
-                horizontal_len = 0;
-            }
-
-            // print s1 first
-            match choice {
-                Some((AlignmentChoice::Insert | AlignmentChoice::OpenInsert, _, _)) => {
-                    s1_out.push('-')
-                }
-                _ => {
-                    if s1_idx < self.s1.sequence.len() {
-                        s1_out.push(self.s1.sequence.as_bytes()[s1_idx] as char);
-                        s1_idx += 1;
-                    }
-                }
-            }
-
-            // then print the alignment row
-            match choice {
-                Some((AlignmentChoice::Match, _, _)) => align_out.push('|'),
-                Some((AlignmentChoice::Mismatch, _, _)) => align_out.push('x'),
-                Some((AlignmentChoice::Insert, _, _)) => align_out.push(' '),
-                Some((AlignmentChoice::Delete, _, _)) => align_out.push(' '),
-                Some((AlignmentChoice::OpenInsert | AlignmentChoice::OpenDelete, _, _)) => {
-                    align_out.push('%')
-                }
-                None => align_out.push(' '),
-            }
-
-            // then print s2
-            match choice {
-                Some((AlignmentChoice::Delete | AlignmentChoice::OpenDelete, _, _)) => {
-                    s2_out.push('-')
-                }
-                _ => {
-                    if s2_idx < self.s2.sequence.len() {
-                        s2_out.push(self.s2.sequence.as_bytes()[s2_idx] as char);
-                        s2_idx += 1;
-                    }
-                }
-            }
-
-            horizontal_len += 1;
-            align_idx += 1;
-        }
-
-        writeln!(f, "\n\n{}-{}:\n", align_idx - s1_out.len(), align_idx)?;
-        writeln!(f, "{}\n{}\n{}", s1_out, align_out, s2_out)?;
-
-        // print stats report
-        writeln!(f, "\n\nAlignment Score: {}", self.score)?;
-        writeln!(
-            f,
-            "Matches: {}/{} ({:.2}%)",
-            self.matches,
-            align_idx,
-            (self.matches as f64 / align_idx as f64) * 100.0
-        )?;
-        writeln!(
-            f,
-            "Mismatches: {}/{} ({:.2}%)",
-            self.mismatches,
-            align_idx,
-            (self.mismatches as f64 / align_idx as f64) * 100.0
-        )?;
-        writeln!(
-            f,
-            "Gap Extensions: {}/{} ({:.2}%)",
-            self.gap_extensions,
-            align_idx,
-            (self.gap_extensions as f64 / align_idx as f64) * 100.0
-        )?;
-        writeln!(
-            f,
-            "Opening Gaps: {}/{} ({:.2}%)",
-            self.opening_gaps,
-            align_idx,
-            (self.opening_gaps as f64 / align_idx as f64) * 100.0
-        )
-    }
-}
-
-/// Prints the sequence table with alignment path for visualization
-fn print_sequence_table(
-    sequence_container: &SequenceContainer,
-    sequence_table: ndarray::ArrayBase<ndarray::OwnedRepr<AlignmentCell>, ndarray::Dim<[usize; 2]>>,
-    aligned_sequences: &AlignedSequences,
-) {
-    let s1_len = sequence_container.sequences[0].sequence.len();
-    let s2_len = sequence_container.sequences[1].sequence.len();
-
-    println!("\nSequence Table (S1 columns, S2 rows):\n");
-
-    // print the columns (bases of the second sequence)
-    print!(" ",);
-    for i in 0..s2_len {
-        print!(
-            "{}",
-            sequence_container.sequences[1]
-                .sequence
-                .chars()
-                .nth(i)
-                .unwrap()
-        );
-    }
-    println!();
-
-    // display dynamic programming table
-    for i in 0..s1_len {
-        // print sequence base
-        print!(
-            "{}",
-            sequence_container.sequences[0]
-                .sequence
-                .chars()
-                .nth(i)
-                .unwrap()
-        );
-        for j in 0..s2_len {
-            // compute a character for visualization
-            let display_char = {
-                let score: i64 = sequence_table[[i, j]].score_max(0, 0, 0, false);
-
-                if score > 5 || sequence_table[[i, j]].is_match {
-                    if sequence_table[[i, j]].is_match {
-                        format!("m").dimmed()
-                    } else {
-                        format!("x").dimmed()
-                    }
-                } else {
-                    format!(".").dimmed()
-                }
-            };
-
-            // if this coordinate it in the alignment path, print a different character
-            let alignment_choice = aligned_sequences
-                .alignment
-                .iter()
-                .find(|(_choice, x, y)| *x == i && *y == j);
-
-            match alignment_choice {
-                Some((AlignmentChoice::Match, _, _)) => print!("{}", "M".green()),
-                Some((AlignmentChoice::Mismatch, _, _)) => print!("{}", "X".red()),
-                Some((AlignmentChoice::Insert, _, _)) => print!("{}", "I".blue()),
-                Some((AlignmentChoice::Delete, _, _)) => print!("{}", "D".cyan()),
-                Some((AlignmentChoice::OpenInsert, _, _)) => print!("{}", "I".blue().bold()),
-                Some((AlignmentChoice::OpenDelete, _, _)) => print!("{}", "D".cyan().bold()),
-                None => print!("{}", display_char),
-            }
-        }
-        println!();
-    }
 }

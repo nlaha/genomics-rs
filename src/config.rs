@@ -3,7 +3,6 @@ use std::{fs, process::exit};
 use log::{error, info};
 use serde_derive::Deserialize;
 
-
 #[derive(Deserialize, Clone)]
 #[serde(rename = "scores")]
 pub struct Scores {
@@ -20,14 +19,20 @@ pub struct FastaConfig {
 }
 
 #[derive(Deserialize)]
+#[serde(rename = "alignment")]
+pub struct AlignmentConfig {
+    pub is_global: bool,
+}
+
+#[derive(Deserialize)]
 pub struct Config {
     pub scores: Scores,
     pub fasta: FastaConfig,
+    pub alignment: AlignmentConfig,
 }
 
 /// Read the config file and return a Config struct.
-pub fn get_config(filepath: &str) -> Config
-{
+pub fn get_config(filepath: &str) -> Config {
     // read config file contents to string
     let contents = match fs::read_to_string(filepath.to_string()) {
         Ok(c) => c,

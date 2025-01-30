@@ -45,13 +45,12 @@ fn main() {
 
     sequence_container.from_fasta(config.fasta.path.as_str());
 
-    info!("{}", "Global Alignment".bright_green());
-    let global_alignment = alignment::align_sequences(&sequence_container, &config.scores, false);
+    info!("{}", "Alignment".bright_green());
+    let alignment = alignment::algo::align_sequences(
+        &sequence_container,
+        &config.scores,
+        config.alignment.is_global,
+    );
 
-    info!("{}", global_alignment);
-
-    info!("{}", "Local Alignment".bright_purple());
-    let local_alignment = alignment::align_sequences(&sequence_container, &config.scores, true);
-
-    info!("{}", local_alignment);
+    info!("{}", alignment);
 }
