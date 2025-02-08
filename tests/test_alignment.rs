@@ -113,5 +113,27 @@ mod test_alignment {
         assert_eq!(aligned_sequences.mismatches, 0);
         assert_eq!(aligned_sequences.opening_gaps, 1);
         assert_eq!(aligned_sequences.gap_extensions, 3);
+
+        assert_eq!(
+            aligned_sequences.alignment,
+            vec![
+                (AlignmentChoice::Match, 15, 11),
+                (AlignmentChoice::Match, 14, 10),
+                (AlignmentChoice::Match, 13, 9),
+                (AlignmentChoice::Match, 12, 8),
+                (AlignmentChoice::Match, 11, 7),
+                (AlignmentChoice::Match, 10, 6),
+                (AlignmentChoice::OpenDelete, 9, 5),
+                (AlignmentChoice::Delete, 8, 5),
+                (AlignmentChoice::Delete, 7, 5),
+                (AlignmentChoice::Delete, 6, 5),
+                (AlignmentChoice::Match, 5, 5),
+                (AlignmentChoice::Match, 4, 4),
+                (AlignmentChoice::Match, 3, 3),
+                (AlignmentChoice::Match, 2, 2),
+                (AlignmentChoice::Match, 1, 1),
+                (AlignmentChoice::Match, 0, 0)
+            ]
+        );
     }
 }
