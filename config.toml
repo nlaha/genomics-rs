@@ -5,4 +5,8 @@ g = -2
 h = -5
 
 [fasta]
-path = "test_data/Human-Mouse-BRCA2-cds.fasta"
+#path = "test_data/Human-Mouse-BRCA2-cds.fasta"
+path = "test_data/test1.fasta"
+
+[alignment]
+is_global = true
