@@ -49,7 +49,7 @@ fn main() {
     let alignment = alignment::algo::align_sequences(
         &sequence_container,
         &config.scores,
-        config.alignment.is_global,
+        config.alignment.is_local,
     );
 
     info!("{}", alignment);

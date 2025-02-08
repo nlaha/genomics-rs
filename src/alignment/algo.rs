@@ -3,7 +3,7 @@ use std::{
     simd::{i64x4, num::SimdInt},
 };
 
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 use ndarray::{Array2, ShapeBuilder};
 use num::Zero;
 use spinoff::{spinners, Color, Spinner};
@@ -11,7 +11,7 @@ use spinoff::{spinners, Color, Spinner};
 use crate::{
     alignment::display::print_sequence_table,
     config::Scores,
-    sequence::{Sequence, SequenceContainer, SequenceOperations},
+    sequence::{self, Sequence, SequenceContainer, SequenceOperations},
 };
 
 /// Cell in the dynamic programming table
@@ -24,7 +24,6 @@ pub struct AlignmentCell {
     pub insert_score: i64,
     pub delete_score: i64,
     pub sub_score: i64,
-    pub is_match: bool,
 }
 
 impl Add for AlignmentCell {
@@ -35,7 +34,6 @@ impl Add for AlignmentCell {
             insert_score: self.insert_score + other.insert_score,
             delete_score: self.delete_score + other.delete_score,
             sub_score: self.sub_score + other.sub_score,
-            is_match: self.is_match && other.is_match,
         }
     }
 }
@@ -46,41 +44,26 @@ impl Zero for AlignmentCell {
             insert_score: 0,
             delete_score: 0,
             sub_score: 0,
-            is_match: false,
         }
     }
 
     fn is_zero(&self) -> bool {
-        self.insert_score == 0 && self.delete_score == 0 && self.sub_score == 0 && !self.is_match
+        self.insert_score == 0 && self.delete_score == 0 && self.sub_score == 0
     }
 
     fn set_zero(&mut self) {
         self.insert_score = 0;
         self.delete_score = 0;
         self.sub_score = 0;
-        self.is_match = false;
     }
 }
 
 /// Handles score calculation for alignment cells
 pub trait ComputeScore {
-    fn substitution(&self, s_match: i64, s_mismatch: i64) -> i64;
     fn score_max(&self, i_mod: i64, s_mod: i64, d_mod: i64, is_local: bool) -> i64;
 }
 
 impl ComputeScore for AlignmentCell {
-    /// Computes the substitution score for the cell
-    /// * `s_match` - score for a match
-    /// * `s_mismatch` - score for a mismatch
-    /// * Returns the substitution score
-    fn substitution(&self, s_match: i64, s_mismatch: i64) -> i64 {
-        if self.is_match {
-            s_match
-        } else {
-            s_mismatch
-        }
-    }
-
     /// Computes the maximum score for the cell
     /// * `i_mod` - insertion score modifier
     /// * `s_mod` - substitution score modifier
@@ -169,48 +152,45 @@ pub fn align_sequences(
                     insert_score: 0,
                     delete_score: 0,
                     sub_score: 0,
-                    is_match: sequence_container.is_match(i, j),
                 },
                 // column
                 (i, 0) => AlignmentCell {
                     insert_score: negative_inf,
                     delete_score: scores.h + (i as i64 * scores.g),
                     sub_score: negative_inf,
-                    is_match: sequence_container.is_match(i, j),
                 },
                 // row
                 (0, j) => AlignmentCell {
                     insert_score: scores.h + (j as i64 * scores.g),
                     delete_score: negative_inf,
                     sub_score: negative_inf,
-                    is_match: sequence_container.is_match(i, j),
                 },
                 (i, j) => {
                     // recurrence relationships for S, D and I
                     let top_left = sequence_table[[i - 1, j - 1]];
-                    let left = sequence_table[[i, j - 1]];
-                    let top = sequence_table[[i - 1, j]];
+                    let left = sequence_table[[i - 1, j]];
+                    let top = sequence_table[[i, j - 1]];
 
                     // build alignment cell struct
                     AlignmentCell {
-                        insert_score: left.score_max(
+                        insert_score: top.score_max(
                             scores.g,
                             scores.h + scores.g,
                             scores.h + scores.g,
                             is_local,
                         ),
 
-                        delete_score: top.score_max(
+                        delete_score: left.score_max(
                             scores.h + scores.g,
                             scores.h + scores.g,
                             scores.g,
                             is_local,
                         ),
 
-                        sub_score: top_left.substitution(scores.s_match, scores.s_mismatch)
-                            + top_left.score_max(0, 0, 0, is_local),
-
-                        is_match: sequence_container.is_match(i, j),
+                        sub_score: match sequence_container.is_match(i, j) {
+                            true => scores.s_match + top_left.score_max(0, 0, 0, is_local),
+                            false => scores.s_mismatch + top_left.score_max(0, 0, 0, is_local),
+                        },
                     }
                 }
             };
@@ -297,23 +277,29 @@ fn retrace(
         // get the score of the current cell
         let max = cell.score_max(0, 0, 0, is_local);
 
+        // debug log cell
+        debug!(
+            "({}, {}) -> max:{}, i:{}, s:{}, d:{}",
+            i, j, max, cell.insert_score, cell.sub_score, cell.delete_score
+        );
+
         let (i_opt, j_opt) = match max {
             // top_left move
             val if val == cell.sub_score => {
-                if cell.is_match {
+                if sequence_container.is_match(i, j) {
                     last_choice = AlignmentChoice::Match;
                     aligned_sequences.matches += 1;
                     aligned_sequences
                         .alignment
                         .push((AlignmentChoice::Match, i, j));
-                    debug!("Match found at ({}, {})", i, j);
+                    debug!("Match found at ({}, {}) -> {}", i, j, val);
                 } else {
                     last_choice = AlignmentChoice::Mismatch;
                     aligned_sequences.mismatches += 1;
                     aligned_sequences
                         .alignment
                         .push((AlignmentChoice::Mismatch, i, j));
-                    debug!("Mismatch found at ({}, {})", i, j);
+                    debug!("Mismatch found at ({}, {}) -> {}", i, j, val);
                 }
                 (i.checked_sub(1), j.checked_sub(1))
             }
@@ -328,7 +314,7 @@ fn retrace(
                 };
 
                 aligned_sequences.alignment.push((choice, i, j));
-                debug!("Insert found at ({}, {})", i, j);
+                debug!("Insert found at ({}, {}) -> {}", i, j, val);
                 last_choice = AlignmentChoice::Insert;
                 (Some(i), j.checked_sub(1))
             }
@@ -343,17 +329,20 @@ fn retrace(
                 };
 
                 aligned_sequences.alignment.push((choice, i, j));
-                debug!("Delete found at ({}, {})", i, j);
+                debug!("Delete found at ({}, {}) -> {}", i, j, val);
                 last_choice = AlignmentChoice::Delete;
                 (i.checked_sub(1), Some(j))
             }
-            _ => panic!("Unexpected score during retrace"),
-        };
+            _ => {
+                if is_local && max == 0 {
+                    info!("Ending local alignment at ({}, {})", i, j);
+                    break;
+                }
 
-        if is_local && max == 0 {
-            info!("Ending local alignment at ({}, {})", i, j);
-            break;
-        }
+                error!("No valid move found at ({}, {}) -> {}", i, j, max);
+                panic!("Unexpected score during retrace: {}", max);
+            }
+        };
 
         (i, j) = match (i_opt, j_opt) {
             (Some(i), Some(j)) => (i, j),

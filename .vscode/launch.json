@@ -7,11 +7,11 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug executable 'genomics-rs'",
+      "name": "Debug executable 'genomics_rs'",
       "cargo": {
-        "args": ["build", "--bin=genomics-rs", "--package=genomics-rs"],
+        "args": ["build", "--bin=genomics_rs", "--package=genomics_rs"],
         "filter": {
-          "name": "genomics-rs",
+          "name": "genomics_rs",
           "kind": "bin"
         }
       },
@@ -24,16 +24,16 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug unit tests in executable 'genomics-rs'",
+      "name": "Debug unit tests in executable 'genomics_rs'",
       "cargo": {
         "args": [
           "test",
           "--no-run",
-          "--bin=genomics-rs",
-          "--package=genomics-rs"
+          "--bin=genomics_rs",
+          "--package=genomics_rs"
         ],
         "filter": {
-          "name": "genomics-rs",
+          "name": "genomics_rs",
           "kind": "bin"
         }
       },

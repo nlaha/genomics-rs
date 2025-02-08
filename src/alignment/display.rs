@@ -160,21 +160,6 @@ pub fn print_sequence_table(
         // print sequence base
         print!("{}", aligned_sequences.s1.sequence.chars().nth(i).unwrap());
         for j in 0..s2_len {
-            // compute a character for visualization
-            let display_char = {
-                let score: i64 = sequence_table[[i, j]].score_max(0, 0, 0, false);
-
-                if score > 5 || sequence_table[[i, j]].is_match {
-                    if sequence_table[[i, j]].is_match {
-                        format!("m").dimmed()
-                    } else {
-                        format!("x").dimmed()
-                    }
-                } else {
-                    format!(".").dimmed()
-                }
-            };
-
             // if this coordinate it in the alignment path, print a different character
             let alignment_choice = aligned_sequences
                 .alignment
@@ -188,7 +173,7 @@ pub fn print_sequence_table(
                 Some((AlignmentChoice::Delete, _, _)) => print!("{}", "D".cyan()),
                 Some((AlignmentChoice::OpenInsert, _, _)) => print!("{}", "I".blue().bold()),
                 Some((AlignmentChoice::OpenDelete, _, _)) => print!("{}", "D".cyan().bold()),
-                None => print!("{}", display_char),
+                None => print!("."),
             }
         }
         println!();

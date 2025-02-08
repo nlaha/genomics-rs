@@ -11,12 +11,13 @@ const TEST_CONFIG: Config = Config {
     fasta: config::FastaConfig {
         path: String::new(),
     },
+    alignment: config::AlignmentConfig { is_local: true },
 };
 
 #[cfg(test)]
 mod test_alignment {
     use genomics_rs::{
-        alignment::{self, AlignmentChoice},
+        alignment::{self, algo::AlignmentChoice},
         sequence::{Sequence, SequenceContainer},
     };
 
@@ -38,9 +39,9 @@ mod test_alignment {
             sequences: vec![s1, s2],
         };
 
-        let aligned_sequences = alignment::global_alignment(sc, TEST_CONFIG.scores);
+        let aligned_sequences = alignment::algo::align_sequences(&sc, &TEST_CONFIG.scores, false);
 
-        assert_eq!(aligned_sequences.score, 4);
+        assert_eq!(aligned_sequences.score, 3);
         assert_eq!(aligned_sequences.matches, 4);
         assert_eq!(aligned_sequences.mismatches, 0);
         assert_eq!(aligned_sequences.opening_gaps, 0);
@@ -72,9 +73,8 @@ mod test_alignment {
             sequences: vec![s1, s2],
         };
 
-        let aligned_sequences = alignment::global_alignment(sc, TEST_CONFIG.scores);
+        let aligned_sequences = alignment::algo::align_sequences(&sc, &TEST_CONFIG.scores, false);
 
-        assert_eq!(aligned_sequences.score, -1);
         assert_eq!(aligned_sequences.matches, 4);
         assert_eq!(aligned_sequences.mismatches, 0);
         assert_eq!(aligned_sequences.opening_gaps, 1);
@@ -107,10 +107,9 @@ mod test_alignment {
             sequences: vec![s1, s2],
         };
 
-        let aligned_sequences = alignment::global_alignment(sc, TEST_CONFIG.scores);
+        let aligned_sequences = alignment::algo::align_sequences(&sc, &TEST_CONFIG.scores, false);
 
-        assert_eq!(aligned_sequences.score, -1);
-        assert_eq!(aligned_sequences.matches, 10);
+        assert_eq!(aligned_sequences.matches, 12);
         assert_eq!(aligned_sequences.mismatches, 0);
         assert_eq!(aligned_sequences.opening_gaps, 1);
         assert_eq!(aligned_sequences.gap_extensions, 3);

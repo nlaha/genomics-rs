@@ -21,7 +21,7 @@ pub struct FastaConfig {
 #[derive(Deserialize)]
 #[serde(rename = "alignment")]
 pub struct AlignmentConfig {
-    pub is_global: bool,
+    pub is_local: bool,
 }
 
 #[derive(Deserialize)]
