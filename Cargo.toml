@@ -1,5 +1,5 @@
 [package]
-name = "genomics-rs"
+name = "genomics_rs"
 version = "0.1.0"
 edition = "2021"
 
@@ -14,6 +14,10 @@ serde = "1.0.217"
 serde_derive = "1.0.217"
 spinoff = "0.8.0"
 toml = "0.8.19"
+
+[lib]
+name = "genomics_rs"
+path = "src/lib.rs"
 
 [profile.dev]
 opt-level = 0
