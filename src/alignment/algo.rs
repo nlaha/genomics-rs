@@ -11,7 +11,7 @@ use spinoff::{spinners, Color, Spinner};
 use crate::{
     alignment::display::print_sequence_table,
     config::Scores,
-    sequence::{self, Sequence, SequenceContainer, SequenceOperations},
+    sequence::{Sequence, SequenceContainer, SequenceOperations},
 };
 
 /// Cell in the dynamic programming table
@@ -366,7 +366,7 @@ fn retrace(
         aligned_sequences.alignment.len()
     );
 
-    print_sequence_table(sequence_table, &aligned_sequences);
+    print_sequence_table(&aligned_sequences);
 
     aligned_sequences
 }

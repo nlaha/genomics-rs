@@ -1,10 +1,8 @@
 use colored::Colorize;
 use log::{info, warn};
-use ndarray::Array2;
 use std::fmt::Display;
 
-use super::algo::{AlignedSequences, AlignmentCell, AlignmentChoice};
-use crate::alignment::algo::ComputeScore;
+use super::algo::{AlignedSequences, AlignmentChoice};
 
 const DISP_MAX_WIDTH: usize = 200;
 
@@ -129,12 +127,8 @@ impl Display for AlignedSequences {
 }
 
 /// Prints the sequence table with alignment path for visualization
-/// * `sequence_table` - computed dynamic programming table
 /// * `aligned_sequences` - the aligned sequences
-pub fn print_sequence_table(
-    sequence_table: Array2<AlignmentCell>,
-    aligned_sequences: &AlignedSequences,
-) {
+pub fn print_sequence_table(aligned_sequences: &AlignedSequences) {
     let s1_len = aligned_sequences.s1.sequence.len();
     let s2_len = aligned_sequences.s2.sequence.len();
 

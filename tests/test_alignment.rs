@@ -8,10 +8,6 @@ const TEST_CONFIG: Config = Config {
         g: -2,
         h: -5,
     },
-    fasta: config::FastaConfig {
-        path: String::new(),
-    },
-    alignment: config::AlignmentConfig { is_local: true },
 };
 
 #[cfg(test)]

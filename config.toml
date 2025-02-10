@@ -3,11 +3,3 @@ s_match = 1
 s_mismatch = -2
 g = -2
 h = -5
-
-[fasta]
-#path = "test_data/Human-Mouse-BRCA2-cds.fasta"
-#path = "test_data/test1.fasta"
-path = "test_data/test2_short.fasta"
-
-[alignment]
-is_local = false

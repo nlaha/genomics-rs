@@ -13,22 +13,8 @@ pub struct Scores {
 }
 
 #[derive(Deserialize)]
-#[serde(rename = "fasta")]
-pub struct FastaConfig {
-    pub path: String,
-}
-
-#[derive(Deserialize)]
-#[serde(rename = "alignment")]
-pub struct AlignmentConfig {
-    pub is_local: bool,
-}
-
-#[derive(Deserialize)]
 pub struct Config {
     pub scores: Scores,
-    pub fasta: FastaConfig,
-    pub alignment: AlignmentConfig,
 }
 
 /// Read the config file and return a Config struct.
@@ -56,8 +42,6 @@ pub fn get_config(filepath: &str) -> Config {
     info!("Mismatch: {}", config.scores.s_mismatch);
     info!("Gap: {}", config.scores.g);
     info!("Opening Gap: {}", config.scores.h);
-
-    info!("Using the following FASTA file: {}", config.fasta.path);
 
     return config;
 }
