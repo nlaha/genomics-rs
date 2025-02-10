@@ -206,12 +206,6 @@ pub fn align_sequences(
         (end_table_init - start_table_init).as_micros()
     );
 
-    // log score
-    info!(
-        "Optimal alignment found, score: {}",
-        sequence_table[[s1_len - 1, s2_len - 1]].score_max(0, 0, 0, is_local)
-    );
-
     let aligned_sequences = retrace(sequence_container, sequence_table, is_local);
 
     return aligned_sequences;
