@@ -144,8 +144,16 @@ pub fn align_sequences(
     let start_table_init: std::time::Instant = std::time::Instant::now();
 
     // iterate through alignment table and fill in scores
-    for i in 0..s1_len {
-        for j in 0..s2_len {
+    for i_raw in 0..s1_len + 1 {
+        for j_raw in 0..s2_len + 1 {
+            let i: usize = match i_raw > 0 {
+                true => i_raw - 1,
+                false => i_raw,
+            };
+            let j = match j_raw > 0 {
+                true => j_raw - 1,
+                false => j_raw,
+            };
             sequence_table[[i, j]] = match (i, j) {
                 // origin
                 (0, 0) => AlignmentCell {

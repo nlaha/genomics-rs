@@ -4,7 +4,7 @@ use std::fmt::Display;
 
 use super::algo::{AlignedSequences, AlignmentChoice};
 
-const DISP_MAX_WIDTH: usize = 75;
+const DISP_MAX_WIDTH: usize = 200;
 
 impl Display for AlignedSequences {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
