@@ -128,7 +128,10 @@ impl Display for AlignedSequences {
 
 /// Prints the sequence table with alignment path for visualization
 /// * `aligned_sequences` - the aligned sequences
-pub fn print_sequence_table(aligned_sequences: &AlignedSequences) {
+pub fn print_sequence_table(
+    aligned_sequences: &AlignedSequences,
+    sequence_table: &ndarray::Array2<super::algo::AlignmentCell>,
+) {
     let s1_len = aligned_sequences.s1.sequence.len();
     let s2_len = aligned_sequences.s2.sequence.len();
 
@@ -158,7 +161,7 @@ pub fn print_sequence_table(aligned_sequences: &AlignedSequences) {
             let alignment_choice = aligned_sequences
                 .alignment
                 .iter()
-                .find(|(_choice, x, y)| *x == i && *y == j);
+                .find(|(_choice, x, y)| *x == i + 1 && *y == j + 1);
 
             match alignment_choice {
                 Some((AlignmentChoice::Match, _, _)) => print!("{}", "M".green()),
@@ -168,6 +171,48 @@ pub fn print_sequence_table(aligned_sequences: &AlignedSequences) {
                 Some((AlignmentChoice::OpenInsert, _, _)) => print!("{}", "I".blue().bold()),
                 Some((AlignmentChoice::OpenDelete, _, _)) => print!("{}", "D".cyan().bold()),
                 None => print!("."),
+            }
+        }
+        println!();
+    }
+
+    // print scores
+    println!("Delete Scores");
+    print_scores_table(&aligned_sequences, &sequence_table, "delete");
+    println!("Insert Scores");
+    print_scores_table(&aligned_sequences, &sequence_table, "insert");
+    println!("Sub Scores");
+    print_scores_table(&aligned_sequences, &sequence_table, "sub");
+}
+
+pub fn print_scores_table(
+    aligned_sequences: &AlignedSequences,
+    sequence_table: &ndarray::Array2<super::algo::AlignmentCell>,
+    score_to_print: &str,
+) {
+    let s1_len = aligned_sequences.s1.sequence.len();
+    let s2_len = aligned_sequences.s2.sequence.len();
+
+    print!(". \t");
+    for j in 0..s2_len + 1 {
+        // print column labels
+        print!("{:?}\t", j);
+    }
+    println!();
+    for i in 0..s1_len + 1 {
+        // print row labels
+        print!("{:?}\t", i);
+        for j in 0..s2_len + 1 {
+            let val = match score_to_print {
+                "delete" => sequence_table[[i, j]].delete_score,
+                "insert" => sequence_table[[i, j]].insert_score,
+                "sub" => sequence_table[[i, j]].sub_score,
+                _ => panic!("Invalid score type"),
+            };
+            if val <= -9223372036854775700 {
+                print!("{}\t", "-inf");
+            } else {
+                print!("{:?}\t", val);
             }
         }
         println!();

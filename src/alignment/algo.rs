@@ -125,7 +125,7 @@ pub fn align_sequences(
     let s2_len = sequence_container.sequences[1].sequence.len();
 
     // create 2D array to store dynamic programming results
-    let mut sequence_table: Array2<AlignmentCell> = Array2::zeros((s1_len, s2_len).f());
+    let mut sequence_table: Array2<AlignmentCell> = Array2::zeros((s1_len + 1, s2_len + 1).f());
 
     // log
     info!("Sequence table shape: {:?}", sequence_table.shape());
@@ -144,16 +144,8 @@ pub fn align_sequences(
     let start_table_init: std::time::Instant = std::time::Instant::now();
 
     // iterate through alignment table and fill in scores
-    for i_raw in 0..s1_len + 1 {
-        for j_raw in 0..s2_len + 1 {
-            let i: usize = match i_raw > 0 {
-                true => i_raw - 1,
-                false => i_raw,
-            };
-            let j = match j_raw > 0 {
-                true => j_raw - 1,
-                false => j_raw,
-            };
+    for i in 0..s1_len + 1 {
+        for j in 0..s2_len + 1 {
             sequence_table[[i, j]] = match (i, j) {
                 // origin
                 (0, 0) => AlignmentCell {
@@ -195,7 +187,7 @@ pub fn align_sequences(
                             is_local,
                         ),
 
-                        sub_score: match sequence_container.is_match(i, j) {
+                        sub_score: match sequence_container.is_match(i - 1, j - 1) {
                             true => scores.s_match + top_left.score_max(0, 0, 0, is_local),
                             false => scores.s_mismatch + top_left.score_max(0, 0, 0, is_local),
                         },
@@ -234,7 +226,7 @@ fn retrace(
     );
 
     let s1_len = sequence_container.sequences[0].sequence.len();
-    let s2_len = sequence_container.sequences[1].sequence.len();
+    let s2_len: usize = sequence_container.sequences[1].sequence.len();
 
     // optimal retrace algorithm
     let start_retrace: std::time::Instant = std::time::Instant::now();
@@ -242,7 +234,8 @@ fn retrace(
     // start at end if performing global alignment
     // or at the highest scoring cell if performing local alignment
     let (mut i, mut j) = match is_local {
-        false => (s1_len - 1, s2_len - 1),
+        // our sequence table is 1-indexed
+        false => (s1_len, s2_len),
         // get coordinates of the highest scoring cell
         true => {
             sequence_table
@@ -352,6 +345,10 @@ fn retrace(
             (Some(i), None) => (i, 0),
             (None, Some(j)) => (0, j),
         };
+
+        if i == 0 && j == 0 {
+            break;
+        }
     }
 
     let end_retrace: std::time::Instant = std::time::Instant::now();
@@ -368,7 +365,7 @@ fn retrace(
         aligned_sequences.alignment.len()
     );
 
-    print_sequence_table(&aligned_sequences);
+    print_sequence_table(&aligned_sequences, &sequence_table);
 
     aligned_sequences
 }

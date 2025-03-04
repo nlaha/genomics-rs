@@ -12,10 +12,11 @@ const TEST_CONFIG: Config = Config {
 
 #[cfg(test)]
 mod test_alignment {
+    use genomics_rs::alignment::algo::{AlignedSequences, AlignmentChoice::*};
     use genomics_rs::{
         alignment::{self, algo::AlignmentChoice},
         sequence::{Sequence, SequenceContainer},
-    };
+    }; // Import enum variants
 
     use crate::TEST_CONFIG;
 
@@ -35,21 +36,18 @@ mod test_alignment {
             sequences: vec![s1, s2],
         };
 
-        let aligned_sequences = alignment::algo::align_sequences(&sc, &TEST_CONFIG.scores, false);
+        let aligned_sequences: AlignedSequences =
+            alignment::algo::align_sequences(&sc, &TEST_CONFIG.scores, false);
 
-        assert_eq!(aligned_sequences.score, 3);
+        println!("{}", aligned_sequences);
+        assert_eq!(aligned_sequences.score, 4);
         assert_eq!(aligned_sequences.matches, 4);
         assert_eq!(aligned_sequences.mismatches, 0);
         assert_eq!(aligned_sequences.opening_gaps, 0);
         assert_eq!(aligned_sequences.gap_extensions, 0);
         assert_eq!(
             aligned_sequences.alignment,
-            vec![
-                (AlignmentChoice::Match, 3, 3),
-                (AlignmentChoice::Match, 2, 2),
-                (AlignmentChoice::Match, 1, 1),
-                (AlignmentChoice::Match, 0, 0),
-            ]
+            vec![(Match, 4, 4), (Match, 3, 3), (Match, 2, 2), (Match, 1, 1)]
         );
     }
 
@@ -62,27 +60,29 @@ mod test_alignment {
 
         let s2: Sequence = Sequence {
             name: "s2".to_string(),
-            sequence: "AACGT".to_string(),
+            sequence: "AGCGT".to_string(),
         };
 
         let sc: SequenceContainer = SequenceContainer {
             sequences: vec![s1, s2],
         };
 
-        let aligned_sequences = alignment::algo::align_sequences(&sc, &TEST_CONFIG.scores, false);
+        let aligned_sequences: AlignedSequences =
+            alignment::algo::align_sequences(&sc, &TEST_CONFIG.scores, false);
 
-        assert_eq!(aligned_sequences.matches, 4);
-        assert_eq!(aligned_sequences.mismatches, 0);
+        println!("{}", aligned_sequences);
+        assert_eq!(aligned_sequences.matches, 3);
+        assert_eq!(aligned_sequences.mismatches, 1);
         assert_eq!(aligned_sequences.opening_gaps, 1);
         assert_eq!(aligned_sequences.gap_extensions, 0);
         assert_eq!(
             aligned_sequences.alignment,
             vec![
-                (AlignmentChoice::Match, 3, 4),
-                (AlignmentChoice::Match, 2, 3),
-                (AlignmentChoice::Match, 1, 2),
-                (AlignmentChoice::OpenInsert, 0, 1),
-                (AlignmentChoice::Match, 0, 0)
+                (Match, 4, 5),
+                (Match, 3, 4),
+                (Match, 2, 3),
+                (OpenInsert, 1, 2),
+                (Mismatch, 1, 1)
             ]
         );
     }
@@ -103,8 +103,10 @@ mod test_alignment {
             sequences: vec![s1, s2],
         };
 
-        let aligned_sequences = alignment::algo::align_sequences(&sc, &TEST_CONFIG.scores, false);
+        let aligned_sequences: AlignedSequences =
+            alignment::algo::align_sequences(&sc, &TEST_CONFIG.scores, false);
 
+        println!("{}", aligned_sequences);
         assert_eq!(aligned_sequences.matches, 12);
         assert_eq!(aligned_sequences.mismatches, 0);
         assert_eq!(aligned_sequences.opening_gaps, 1);
@@ -113,22 +115,22 @@ mod test_alignment {
         assert_eq!(
             aligned_sequences.alignment,
             vec![
-                (AlignmentChoice::Match, 15, 11),
-                (AlignmentChoice::Match, 14, 10),
-                (AlignmentChoice::Match, 13, 9),
-                (AlignmentChoice::Match, 12, 8),
-                (AlignmentChoice::Match, 11, 7),
-                (AlignmentChoice::Match, 10, 6),
-                (AlignmentChoice::OpenDelete, 9, 5),
-                (AlignmentChoice::Delete, 8, 5),
-                (AlignmentChoice::Delete, 7, 5),
-                (AlignmentChoice::Delete, 6, 5),
-                (AlignmentChoice::Match, 5, 5),
-                (AlignmentChoice::Match, 4, 4),
-                (AlignmentChoice::Match, 3, 3),
-                (AlignmentChoice::Match, 2, 2),
-                (AlignmentChoice::Match, 1, 1),
-                (AlignmentChoice::Match, 0, 0)
+                (Match, 16, 12),
+                (Match, 15, 11),
+                (Match, 14, 10),
+                (Match, 13, 9),
+                (Match, 12, 8),
+                (Match, 11, 7),
+                (OpenDelete, 10, 6),
+                (Delete, 9, 6),
+                (Delete, 8, 6),
+                (Delete, 7, 6),
+                (Match, 6, 6),
+                (Match, 5, 5),
+                (Match, 4, 4),
+                (Match, 3, 3),
+                (Match, 2, 2),
+                (Match, 1, 1)
             ]
         );
     }
