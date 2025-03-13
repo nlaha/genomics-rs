@@ -36,12 +36,5 @@ pub fn get_config(filepath: &str) -> Config {
         }
     };
 
-    // log config
-    info!("Using the following values for scoring:");
-    info!("Match: {}", config.scores.s_match);
-    info!("Mismatch: {}", config.scores.s_mismatch);
-    info!("Gap: {}", config.scores.g);
-    info!("Opening Gap: {}", config.scores.h);
-
     return config;
 }

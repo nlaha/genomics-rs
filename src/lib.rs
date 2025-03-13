@@ -3,3 +3,4 @@
 pub mod alignment;
 pub mod config;
 pub mod sequence;
+pub mod suffixtree;

@@ -1,6 +1,6 @@
 #![feature(portable_simd)]
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use colored::Colorize;
 use config::Config;
 use log::info;
@@ -11,18 +11,28 @@ use std::env;
 mod alignment;
 mod config;
 mod sequence;
+mod suffixtree;
+
+#[derive(Debug, Subcommand)]
+enum Command {
+    Align {
+        /// Whether to perform local or global alignment
+        #[arg(short, long, default_value = "local")]
+        alignment_type: String,
+    },
+    SuffixTree {},
+}
 
 /// Tool for aligning FASTA sequences with Smith-Waterman or Needleman-Wunsch
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct CliArgs {
+    #[clap(subcommand)]
+    mode: Command,
+
     /// Path to the FASTA file containing two sequences to align
     #[arg(short, long)]
     fasta_path: String,
-
-    /// Whether to perform local or global alignment
-    #[arg(short, long, default_value = "local")]
-    alignment_type: String,
 
     /// Path to the config file
     #[arg(short, long, default_value = "config.toml")]
@@ -68,14 +78,31 @@ fn main() {
 
     sequence_container.from_fasta(args.fasta_path.as_str());
 
-    info!("Alignment Type: {}", args.alignment_type);
+    // Extract alignment_type from the Command variant
+    match &args.mode {
+        Command::Align { alignment_type } => {
+            // log config
+            info!("Using the following values for scoring:");
+            info!("Match: {}", config.scores.s_match);
+            info!("Mismatch: {}", config.scores.s_mismatch);
+            info!("Gap: {}", config.scores.g);
+            info!("Opening Gap: {}", config.scores.h);
 
-    info!("{}", "Alignment".bright_green());
-    let alignment = alignment::algo::align_sequences(
-        &sequence_container,
-        &config.scores,
-        args.alignment_type == "local" || args.alignment_type == "1",
-    );
+            info!("Alignment Type: {}", alignment_type);
 
-    info!("{}", alignment);
+            info!("{}", "Alignment".bright_green());
+            let alignment = alignment::algo::align_sequences(
+                &sequence_container,
+                &config.scores,
+                alignment_type == "local" || alignment_type == "1",
+            );
+
+            info!("{}", alignment);
+        }
+        Command::SuffixTree {} => {
+            info!("{}", "Suffix Tree".bright_green());
+
+            let mut suffix_tree = suffixtree::tree::SuffixTree::new("banana");
+        }
+    };
 }
