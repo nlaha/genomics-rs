@@ -7,7 +7,7 @@ use std::rc::Rc;
  */
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Edge {
-    label: String,
+    pub label: String,
 }
 
 const ALPHABET: &str = "$ban";
@@ -17,11 +17,11 @@ const ALPHABET: &str = "$ban";
  */
 #[derive(Debug, Clone, PartialEq)]
 pub struct TreeNode {
-    id: usize,
-    string_depth: usize,
-    parent: RefCell<Option<Rc<TreeNode>>>,
-    children: RefCell<[Option<Rc<TreeNode>>; ALPHABET.len()]>,
-    edge: RefCell<Edge>,
+    pub id: usize,
+    pub string_depth: usize,
+    pub parent: RefCell<Option<Rc<TreeNode>>>,
+    pub children: RefCell<[Option<Rc<TreeNode>>; ALPHABET.len()]>,
+    pub edge: RefCell<Edge>,
 }
 
 impl TreeNode {
@@ -51,7 +51,9 @@ pub struct SuffixTree {
 }
 
 pub fn get_child_index(c: char) -> usize {
-    return ALPHABET.find(c).expect("Unsupported character in edge label");
+    return ALPHABET
+        .find(c)
+        .expect("Unsupported character in edge label");
 }
 
 impl SuffixTree {
@@ -96,11 +98,25 @@ impl SuffixTree {
     }
 
     /**
+     * Performs a Depth First Search (DFS) on the suffix tree
+     * executing a callback on each node
+     */
+    pub fn dfs(&self, callback: &mut dyn FnMut(Rc<TreeNode>)) {
+        let mut stack = vec![self.root.borrow().clone()];
+
+        while let Some(node) = stack.pop() {
+            callback(node.clone());
+            for child in node.children.borrow().iter().rev().flatten() {
+                stack.push(child.clone());
+            }
+        }
+    }
+
+    /**
      * Breaks the edge at the given index and inserts a new node
      * also populates the leaf node with the given label
      */
     pub fn break_edge(&mut self, node: Rc<TreeNode>, break_idx: usize, leaf_label: &str) {
-        
         // if it doesn't have a parent, panic
         let parent = node
             .parent
@@ -108,7 +124,11 @@ impl SuffixTree {
             .clone()
             .expect("Node has no parent - cannot break edge");
 
-        println!("Breaking edge '{}' at {}", node.edge.borrow().label.clone(), break_idx);
+        println!(
+            "Breaking edge '{}' at {}",
+            node.edge.borrow().label.clone(),
+            break_idx
+        );
 
         // Get the current label
         let current_label = node.edge.borrow().label.clone();
@@ -144,7 +164,7 @@ impl SuffixTree {
             }),
         });
 
-        node.add_child(leaf_node.clone());
+        new_internal_node.add_child(leaf_node.clone());
         parent.add_child(new_internal_node.clone());
     }
 
@@ -223,6 +243,8 @@ mod test {
     #[test]
     fn test_tree_simple3() {
         let tree = SuffixTree::new("banana");
+
+        println!("{}", tree);
 
         assert_eq!(tree.suffixes.len(), 6);
     }
