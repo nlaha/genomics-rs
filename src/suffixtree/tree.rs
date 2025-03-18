@@ -10,8 +10,6 @@ pub struct Edge {
     pub label: String,
 }
 
-const ALPHABET: &str = "$ban";
-
 /**
  * Represents a node in the suffix tree
  */
@@ -20,7 +18,7 @@ pub struct TreeNode {
     pub id: usize,
     pub string_depth: usize,
     pub parent: RefCell<Option<Rc<TreeNode>>>,
-    pub children: RefCell<[Option<Rc<TreeNode>>; ALPHABET.len()]>,
+    pub children: RefCell<Vec<Option<Rc<TreeNode>>>>,
     pub edge: RefCell<Edge>,
 }
 
@@ -29,9 +27,9 @@ impl TreeNode {
         *self.parent.borrow_mut() = Some(parent);
     }
 
-    pub fn add_child(self: &Rc<Self>, child: Rc<TreeNode>) {
+    pub fn add_child(self: &Rc<Self>, alphabet: &Vec<char>, child: Rc<TreeNode>) {
         let child_idx = match child.edge.borrow().label.chars().next() {
-            Some(c) => get_child_index(c),
+            Some(c) => get_child_index(alphabet, c),
             None => {
                 panic!("Child node has no edge label");
             }
@@ -42,40 +40,78 @@ impl TreeNode {
     }
 }
 
+pub struct TreeStats {
+    pub num_internal: usize,
+    pub num_leaves: usize,
+    pub num_nodes: usize,
+    pub average_string_depth: f64,
+    pub max_string_depth: usize,
+}
+
 pub struct SuffixTree {
     // nodes are stored in a flat vector
     original_string: String,
-    last_id: usize,
+    last_internal_id: usize,
+    last_leaf_id: usize,
     suffixes: Vec<String>,
     root: RefCell<Rc<TreeNode>>,
+    alphabet: Vec<char>,
+    pub internal_nodes: Vec<Rc<TreeNode>>,
+    pub leaf_nodes: Vec<Rc<TreeNode>>,
+    pub stats: TreeStats,
 }
 
-pub fn get_child_index(c: char) -> usize {
-    return ALPHABET
-        .find(c)
-        .expect("Unsupported character in edge label");
+/**
+ * Gets the index of a character in the alphabet
+ */
+pub fn get_child_index(alphabet: &Vec<char>, c: char) -> usize {
+    return alphabet
+        .iter()
+        .enumerate()
+        .find(|(_, &x)| x == c)
+        .expect("Character not found in alphabet")
+        .0;
 }
 
 impl SuffixTree {
     /**
      * Create a new suffix tree with a given number of children
      */
-    pub fn new(original_string: &str) -> SuffixTree {
+    pub fn new(original_string: &str, alphabet_file: &str) -> SuffixTree {
         let string_length = original_string.len();
+
+        // load alphabet from file
+        let alphabet = match std::fs::read_to_string(alphabet_file) {
+            Ok(a) => a.chars().collect::<Vec<char>>(),
+            Err(_) => {
+                panic!("Could not read alphabet file: {}", alphabet_file);
+            }
+        };
 
         let mut tree = SuffixTree {
             original_string: original_string.to_string(),
-            last_id: string_length,
+            last_internal_id: string_length,
+            last_leaf_id: 0,
             suffixes: Vec::with_capacity(string_length),
             root: RefCell::new(Rc::new(TreeNode {
                 id: 0,
                 string_depth: 0,
                 parent: RefCell::new(None),
-                children: RefCell::new([const { None }; ALPHABET.len()]),
+                children: RefCell::new(vec![None; alphabet.len()]),
                 edge: RefCell::new(Edge {
                     label: "".to_string(),
                 }),
             })),
+            alphabet: alphabet,
+            internal_nodes: Vec::new(),
+            leaf_nodes: Vec::new(),
+            stats: TreeStats {
+                num_internal: 0,
+                num_leaves: 0,
+                num_nodes: 0,
+                average_string_depth: 0.0,
+                max_string_depth: 0,
+            },
         };
 
         // build a set of suffixes with '$' appended to the end
@@ -84,17 +120,23 @@ impl SuffixTree {
             tree.find_path(suffix.as_str());
         }
 
+        tree.stats.num_nodes = tree.leaf_nodes.len() + tree.internal_nodes.len();
+        tree.stats.num_internal = tree.internal_nodes.len();
+        tree.stats.num_leaves = tree.leaf_nodes.len();
+        tree.stats.average_string_depth = tree
+            .internal_nodes
+            .iter()
+            .map(|n| n.string_depth)
+            .sum::<usize>() as f64
+            / tree.internal_nodes.len() as f64;
+        tree.stats.max_string_depth = tree
+            .internal_nodes
+            .iter()
+            .map(|n| n.string_depth)
+            .max()
+            .unwrap_or(0);
+
         return tree;
-    }
-
-    /**
-     * Increments the ID counter and returns the ID to be
-     * used for an internal node
-     */
-    pub fn get_next_node_id(&mut self) -> usize {
-        self.last_id += 6;
-
-        return self.last_id;
     }
 
     /**
@@ -139,33 +181,62 @@ impl SuffixTree {
         };
 
         // create a new internal node
-        let next_id: usize = self.get_next_node_id();
-        let new_internal_node = Rc::new(TreeNode {
-            id: next_id,
-            string_depth: parent.string_depth + break_idx,
-            parent: node.parent.clone(),
-            children: RefCell::new([const { None }; ALPHABET.len()]),
-            edge: RefCell::new(Edge {
-                label: current_label[..break_idx].to_string(),
-            }),
-        });
+        let new_internal_node =
+            self.create_internal_node(parent.clone(), &current_label[..break_idx]);
 
         // update the current node's parent
-        new_internal_node.add_child(node.clone());
+        new_internal_node.add_child(&self.alphabet, node.clone());
 
         // add the leaf on the new internal node
-        let leaf_node = Rc::new(TreeNode {
-            id: next_id + 1,
-            string_depth: new_internal_node.string_depth + leaf_label.len(),
-            parent: RefCell::new(Some(new_internal_node.clone())),
-            children: RefCell::new([const { None }; ALPHABET.len()]),
+        self.create_leaf(new_internal_node.clone(), leaf_label);
+    }
+
+    /**
+     * Creates a new internal node with the given parent and edge label
+     */
+    pub fn create_internal_node(&mut self, parent: Rc<TreeNode>, label: &str) -> Rc<TreeNode> {
+        let internal_id = self.last_internal_id + 1;
+        self.last_internal_id = internal_id;
+
+        let internal_node = Rc::new(TreeNode {
+            id: internal_id,
+            string_depth: parent.string_depth + label.bytes().len(),
+            parent: RefCell::new(Some(parent.clone())),
+            children: RefCell::new(vec![None; self.alphabet.len()]),
             edge: RefCell::new(Edge {
-                label: leaf_label.to_string(),
+                label: label.to_string(),
             }),
         });
 
-        new_internal_node.add_child(leaf_node.clone());
-        parent.add_child(new_internal_node.clone());
+        self.internal_nodes.push(internal_node.clone());
+
+        parent.add_child(&self.alphabet, internal_node.clone());
+
+        return internal_node;
+    }
+
+    /**
+     * Creates a new leaf node with the given parent and edge label
+     */
+    pub fn create_leaf(&mut self, parent: Rc<TreeNode>, label: &str) -> Rc<TreeNode> {
+        let leaf_id: usize = self.last_leaf_id + 1;
+        self.last_leaf_id = leaf_id;
+
+        let leaf = Rc::new(TreeNode {
+            id: leaf_id,
+            string_depth: parent.string_depth + label.bytes().len(),
+            parent: RefCell::new(Some(parent.clone())),
+            children: RefCell::new(vec![None; self.alphabet.len()]),
+            edge: RefCell::new(Edge {
+                label: label.to_string(),
+            }),
+        });
+
+        self.leaf_nodes.push(leaf.clone());
+
+        parent.add_child(&self.alphabet, leaf.clone());
+
+        return leaf;
     }
 
     /**
@@ -200,7 +271,7 @@ impl SuffixTree {
             println!("{}", suffix);
 
             let child_node: Option<Rc<TreeNode>> =
-                current_node.children.borrow()[get_child_index(c)].clone();
+                current_node.children.borrow()[get_child_index(&self.alphabet, c)].clone();
             match child_node {
                 // there's already a child node, so we need to keep moving down the tree
                 Some(n) => {
@@ -208,15 +279,15 @@ impl SuffixTree {
                 }
                 // there's no child node, so we need to add a new leaf
                 None => {
-                    current_node.add_child(Rc::new(TreeNode {
-                        id: self.get_next_node_id(),
-                        string_depth: current_node.string_depth + suffix.len(),
-                        parent: RefCell::new(Some(current_node.clone())),
-                        children: RefCell::new([const { None }; ALPHABET.len()]),
-                        edge: RefCell::new(Edge {
-                            label: suffix[edge_label.len()..].to_string(),
-                        }),
-                    }));
+                    let leaf_id = self.last_leaf_id + 1;
+                    self.last_leaf_id = leaf_id;
+                    current_node.add_child(
+                        &self.alphabet.clone(),
+                        self.create_leaf(
+                            current_node.clone(),
+                            &suffix[edge_label.len()..].to_string(),
+                        ),
+                    );
                     return;
                 }
             }
@@ -228,24 +299,31 @@ impl SuffixTree {
 mod test {
     use super::SuffixTree;
 
-    // #[test]
-    // fn test_tree_simple() {
-    //     let tree = SuffixTree::new("a");
-    // }
+    #[test]
+    fn test_tree_simple() {
+        let tree = SuffixTree::new("a", "alphabets/dna.txt");
 
-    // #[test]
-    // fn test_tree_simple2() {
-    //     let tree = SuffixTree::new("aca");
+        assert_eq!(tree.suffixes.len(), 1);
+    }
 
-    //     assert_eq!(tree.suffixes.len(), 3);
-    // }
+    #[test]
+    fn test_tree_simple2() {
+        let tree = SuffixTree::new("aca", "alphabets/dna.txt");
+
+        assert_eq!(tree.suffixes.len(), 3);
+    }
 
     #[test]
     fn test_tree_simple3() {
-        let tree = SuffixTree::new("banana");
+        let tree = SuffixTree::new("banana", "alphabets/banana.txt");
 
         println!("{}", tree);
 
         assert_eq!(tree.suffixes.len(), 6);
+        assert_eq!(tree.stats.num_internal, 3);
+        assert_eq!(tree.stats.num_leaves, 6);
+        assert_eq!(tree.stats.num_nodes, 9);
+        assert_eq!(tree.stats.average_string_depth, 2.0);
+        assert_eq!(tree.stats.max_string_depth, 3);
     }
 }

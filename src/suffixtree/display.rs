@@ -2,10 +2,30 @@ use std::{fmt::Display, rc::Rc};
 
 use petgraph::{dot::Dot, Graph};
 
-use super::tree::{SuffixTree, TreeNode};
+use super::tree::{SuffixTree, TreeNode, TreeStats};
+
+impl Display for TreeStats {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "
+            Internal nodes: {}
+            Leaves: {}
+            Nodes: {}
+            Average string depth: {}
+            Max string depth: {}
+            ",
+            self.num_internal,
+            self.num_leaves,
+            self.num_nodes,
+            self.average_string_depth,
+            self.max_string_depth
+        )
+    }
+}
 
 impl Display for SuffixTree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // dfs traversal of the tree
         let mut graph = Graph::<String, String>::new();
         let mut parent: Option<Rc<TreeNode>> = None;
@@ -30,11 +50,12 @@ impl Display for SuffixTree {
             }
         });
 
-        println!(
-            "{:?}",
+        writeln!(
+            _f,
+            "Graphviz:\n{:?}",
             Dot::with_config(&graph, &[petgraph::dot::Config::NodeNoLabel])
-        );
+        )?;
 
-        Ok(())
+        writeln!(_f, "Stats: {}", self.stats)
     }
 }

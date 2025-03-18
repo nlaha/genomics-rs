@@ -20,7 +20,10 @@ enum Command {
         #[arg(short, long, default_value = "local")]
         alignment_type: String,
     },
-    SuffixTree {},
+    SuffixTree {
+        #[arg(short, long)]
+        alphabet_file: String,
+    },
 }
 
 /// Tool for aligning FASTA sequences with Smith-Waterman or Needleman-Wunsch
@@ -99,10 +102,10 @@ fn main() {
 
             info!("{}", alignment);
         }
-        Command::SuffixTree {} => {
+        Command::SuffixTree { alphabet_file } => {
             info!("{}", "Suffix Tree".bright_green());
 
-            let mut suffix_tree = suffixtree::tree::SuffixTree::new("banana");
+            let mut suffix_tree = suffixtree::tree::SuffixTree::new("banana", alphabet_file);
         }
     };
 }
