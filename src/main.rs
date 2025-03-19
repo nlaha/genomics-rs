@@ -46,7 +46,7 @@ fn main() {
     // parse cli args
     let args = CliArgs::parse();
 
-    // set default log level to trace
+    // set default log level
     if env::var("RUST_LOG").is_err() {
         env::set_var("RUST_LOG", "info")
     }
@@ -105,7 +105,12 @@ fn main() {
         Command::SuffixTree { alphabet_file } => {
             info!("{}", "Suffix Tree".bright_green());
 
-            let mut suffix_tree = suffixtree::tree::SuffixTree::new("banana", alphabet_file);
+            let suffix_tree = suffixtree::tree::SuffixTree::new(
+                &sequence_container.sequences[0].sequence,
+                alphabet_file,
+            );
+
+            info!("{}", suffix_tree);
         }
     };
 }

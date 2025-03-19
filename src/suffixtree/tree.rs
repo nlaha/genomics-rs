@@ -2,6 +2,8 @@ use std::cell::{Ref, RefCell};
 use std::panic;
 use std::rc::Rc;
 
+use log::{debug, info};
+
 /**
  * Indicates the start and end of an edge in the suffix tree
  */
@@ -69,7 +71,7 @@ pub fn get_child_index(alphabet: &Vec<char>, c: char) -> usize {
         .iter()
         .enumerate()
         .find(|(_, &x)| x == c)
-        .expect("Character not found in alphabet")
+        .expect(format!("Character {} not found in alphabet", c).as_str())
         .0;
 }
 
@@ -115,7 +117,7 @@ impl SuffixTree {
         };
 
         // build a set of suffixes with '$' appended to the end
-        for i in (0..string_length) {
+        for i in 0..string_length {
             let suffix = tree.original_string[i..].to_string() + "$";
             tree.find_path(suffix.as_str());
         }
@@ -166,18 +168,14 @@ impl SuffixTree {
             .clone()
             .expect("Node has no parent - cannot break edge");
 
-        println!(
-            "Breaking edge '{}' at {}",
-            node.edge.borrow().label.clone(),
-            break_idx
-        );
+        debug!("Breaking edge at {}", break_idx);
 
         // Get the current label
-        let current_label = node.edge.borrow().label.clone();
+        let current_label = node.edge.borrow().label.to_owned();
 
         // update the current node's edge
         *node.edge.borrow_mut() = Edge {
-            label: current_label[break_idx..].to_string(),
+            label: current_label[break_idx..].to_string().to_owned(),
         };
 
         // create a new internal node
@@ -197,6 +195,8 @@ impl SuffixTree {
     pub fn create_internal_node(&mut self, parent: Rc<TreeNode>, label: &str) -> Rc<TreeNode> {
         let internal_id = self.last_internal_id + 1;
         self.last_internal_id = internal_id;
+
+        info!("Node edge label: {}", label);
 
         let internal_node = Rc::new(TreeNode {
             id: internal_id,
@@ -243,21 +243,38 @@ impl SuffixTree {
      * Walks down the tree and inserts new leaf for the given suffix
      */
     pub fn find_path(&mut self, suffix: &str) {
-        println!("Finding path for suffix: {}", suffix);
+        // if suffix is longer than 100 characters, truncate it
+        if suffix.len() > 100 {
+            info!("Truncated suffix: {}...", &suffix[..100]);
+        } else {
+            info!("Finding path for suffix: {}", suffix);
+        }
 
         self.suffixes.push(suffix.to_string());
 
         let mut current_node = self.root.borrow().clone();
 
+        let mut suffix_idx = 0;
         loop {
             let edge_label: &str = &current_node.edge.borrow().label.clone();
 
             // enumerate characters in edge label
+            if edge_label.len() > 100 {
+                debug!("Edge label: {}...", edge_label[0..100].to_string());
+            } else {
+                debug!("Edge label: {}", edge_label);
+            }
+
             for (i, c) in edge_label.bytes().enumerate() {
-                let suffix_char = suffix.as_bytes()[i];
+                if (suffix_idx + i) >= suffix.len() {
+                    return;
+                }
+
+                let suffix_char = suffix.as_bytes()[i + suffix_idx];
 
                 // if the suffix character is not equal to the edge character
                 // break a new edge and insert a new leaf
+                debug!("Comparing {} to {}", suffix_char as char, c as char);
                 if suffix_char != c {
                     self.break_edge(current_node.clone(), i, &suffix[i..]);
                     return;
@@ -268,17 +285,33 @@ impl SuffixTree {
             // compare the first character of the edge label of each child node
             // to the next character in the suffix
             let c = suffix.as_bytes()[edge_label.len()] as char;
-            println!("{}", suffix);
+            suffix_idx += edge_label.len() - 1;
+
+            debug!("Finding next child node for {}", c);
 
             let child_node: Option<Rc<TreeNode>> =
                 current_node.children.borrow()[get_child_index(&self.alphabet, c)].clone();
             match child_node {
                 // there's already a child node, so we need to keep moving down the tree
                 Some(n) => {
+                    if n.edge.borrow().label.len() > 100 {
+                        debug!(
+                            "Found child node: {}, label: {}...",
+                            n.id,
+                            n.edge.borrow().label[0..100].to_string()
+                        );
+                    } else {
+                        debug!(
+                            "Found child node: {}, label: {}",
+                            n.id,
+                            n.edge.borrow().label
+                        );
+                    }
                     current_node = n;
                 }
                 // there's no child node, so we need to add a new leaf
                 None => {
+                    debug!("No child node found, adding new leaf");
                     let leaf_id = self.last_leaf_id + 1;
                     self.last_leaf_id = leaf_id;
                     current_node.add_child(
@@ -297,18 +330,21 @@ impl SuffixTree {
 
 #[cfg(test)]
 mod test {
+    use log::info;
+
     use super::SuffixTree;
+    use crate::sequence::{SequenceContainer, SequenceOperations};
 
     #[test]
     fn test_tree_simple() {
-        let tree = SuffixTree::new("a", "alphabets/dna.txt");
+        let tree = SuffixTree::new("A", "alphabets/dna.txt");
 
         assert_eq!(tree.suffixes.len(), 1);
     }
 
     #[test]
     fn test_tree_simple2() {
-        let tree = SuffixTree::new("aca", "alphabets/dna.txt");
+        let tree = SuffixTree::new("ACA", "alphabets/dna.txt");
 
         assert_eq!(tree.suffixes.len(), 3);
     }
@@ -325,5 +361,21 @@ mod test {
         assert_eq!(tree.stats.num_nodes, 9);
         assert_eq!(tree.stats.average_string_depth, 2.0);
         assert_eq!(tree.stats.max_string_depth, 3);
+    }
+
+    #[test]
+    fn test_tree_chr12() {
+        let mut sequence_container: SequenceContainer = SequenceContainer {
+            sequences: Vec::new(),
+        };
+
+        sequence_container.from_fasta("test_data/chr12.fasta");
+
+        let suffix_tree = SuffixTree::new(
+            &sequence_container.sequences[0].sequence,
+            "alphabets/dna.txt",
+        );
+
+        info!("{}", suffix_tree);
     }
 }

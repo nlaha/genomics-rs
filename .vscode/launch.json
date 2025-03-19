@@ -18,7 +18,8 @@
       "env": {
         "RUST_LOG": "trace"
       },
-      "args": [],
+      "args": [
+      ],
       "cwd": "${workspaceFolder}"
     },
     {
