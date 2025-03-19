@@ -119,6 +119,12 @@ impl SuffixTree {
         // build a set of suffixes with '$' appended to the end
         for i in 0..string_length {
             let suffix = tree.original_string[i..].to_string() + "$";
+            // if suffix is longer than 100 characters, truncate it
+            if suffix.len() > 100 {
+                info!("[FindPath] {}/{} {}...", i, string_length, &suffix[..100]);
+            } else {
+                info!("[FindPath] {}/{} {}", i, string_length, suffix);
+            }
             tree.find_path(suffix.as_str());
         }
 
@@ -196,7 +202,7 @@ impl SuffixTree {
         let internal_id = self.last_internal_id + 1;
         self.last_internal_id = internal_id;
 
-        info!("Node edge label: {}", label);
+        debug!("Node edge label: {}", label);
 
         let internal_node = Rc::new(TreeNode {
             id: internal_id,
@@ -243,13 +249,6 @@ impl SuffixTree {
      * Walks down the tree and inserts new leaf for the given suffix
      */
     pub fn find_path(&mut self, suffix: &str) {
-        // if suffix is longer than 100 characters, truncate it
-        if suffix.len() > 100 {
-            info!("Truncated suffix: {}...", &suffix[..100]);
-        } else {
-            info!("Finding path for suffix: {}", suffix);
-        }
-
         self.suffixes.push(suffix.to_string());
 
         let mut current_node = self.root.borrow().clone();
@@ -267,7 +266,7 @@ impl SuffixTree {
 
             for (i, c) in edge_label.bytes().enumerate() {
                 if (suffix_idx + i) >= suffix.len() {
-                    return;
+                    break;
                 }
 
                 let suffix_char = suffix.as_bytes()[i + suffix_idx];
@@ -281,11 +280,19 @@ impl SuffixTree {
                 }
             }
 
+            if suffix_idx >= suffix.len() {
+                return;
+            }
+
             // if we've reached the end of the edge label, move to the next node
             // compare the first character of the edge label of each child node
             // to the next character in the suffix
-            let c = suffix.as_bytes()[edge_label.len()] as char;
-            suffix_idx += edge_label.len() - 1;
+            if edge_label.len() > 0 {
+                suffix_idx += edge_label.len();
+            }
+            let c = suffix.as_bytes()[suffix_idx] as char;
+
+            debug!("Suffix index: {}", suffix_idx);
 
             debug!("Finding next child node for {}", c);
 
