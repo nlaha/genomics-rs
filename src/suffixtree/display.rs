@@ -14,18 +14,20 @@ impl Display for TreeStats {
             Nodes: {}
             Average string depth: {}
             Max string depth: {}
+            BWT: {}
             ",
             self.num_internal,
             self.num_leaves,
             self.num_nodes,
             self.average_string_depth,
-            self.max_string_depth
+            self.max_string_depth,
+            self.bwt
         )
     }
 }
 
 impl Display for SuffixTree {
-    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // dfs traversal of the tree
         let mut graph = Graph::<String, String>::new();
         let mut parent: Option<Rc<TreeNode>> = None;
@@ -38,7 +40,7 @@ impl Display for SuffixTree {
                     let parent_idx = graph
                         .node_indices()
                         .find(|idx| {
-                            let node = graph.node_weight(*idx).unwrap();
+                            let node: &String = graph.node_weight(*idx).unwrap();
                             node == &parent.id.to_string()
                         })
                         .unwrap();
@@ -51,11 +53,11 @@ impl Display for SuffixTree {
         });
 
         writeln!(
-            _f,
+            f,
             "Graphviz:\n{:?}",
             Dot::with_config(&graph, &[petgraph::dot::Config::NodeNoLabel])
         )?;
 
-        writeln!(_f, "Stats: {}", self.stats)
+        writeln!(f, "Stats: {}", self.stats)
     }
 }
