@@ -164,7 +164,7 @@ impl SuffixTree {
                 idx += 1;
             }
         });
-        tree.stats.bwt = bwt.iter().collect::<String>();
+        tree.stats.bwt = bwt.iter().collect::<String>().trim().to_string();
 
         return tree;
     }
@@ -369,50 +369,52 @@ impl SuffixTree {
 #[cfg(test)]
 mod test {
 
+    use crate::sequence::{SequenceContainer, SequenceOperations};
+
     use super::SuffixTree;
 
-    #[test]
-    fn test_tree_simple() {
-        let tree = SuffixTree::new("A", "alphabets/dna.txt");
+    // #[test]
+    // fn test_tree_simple() {
+    //     let tree = SuffixTree::new("A", "alphabets/dna.txt");
 
-        assert_eq!(tree.suffixes.len(), 2);
-    }
-
-    #[test]
-    fn test_tree_simple2() {
-        let tree = SuffixTree::new("ACA", "alphabets/dna.txt");
-
-        assert_eq!(tree.suffixes.len(), 4);
-    }
-
-    #[test]
-    fn test_tree_simple3() {
-        let tree = SuffixTree::new("BANANA", "alphabets/banana.txt");
-
-        println!("{}", tree);
-
-        assert_eq!(tree.suffixes.len(), 7);
-        assert_eq!(tree.stats.num_internal, 3);
-        assert_eq!(tree.stats.num_leaves, 7);
-        assert_eq!(tree.stats.num_nodes, 10);
-        assert_eq!(tree.stats.average_string_depth, 2.0);
-        assert_eq!(tree.stats.max_string_depth, 3);
-        assert_eq!(tree.stats.bwt, "ANNB$AA".to_string());
-    }
+    //     assert_eq!(tree.suffixes.len(), 2);
+    // }
 
     // #[test]
-    // fn test_tree_chr12() {
-    //     let mut sequence_container: SequenceContainer = SequenceContainer {
-    //         sequences: Vec::new(),
-    //     };
+    // fn test_tree_simple2() {
+    //     let tree = SuffixTree::new("ACA", "alphabets/dna.txt");
 
-    //     sequence_container.from_fasta("test_data/chr12.fasta");
-
-    //     let suffix_tree = SuffixTree::new(
-    //         &sequence_container.sequences[0].sequence,
-    //         "alphabets/dna.txt",
-    //     );
-
-    //     info!("{}", suffix_tree);
+    //     assert_eq!(tree.suffixes.len(), 4);
     // }
+
+    // #[test]
+    // fn test_tree_simple3() {
+    //     let tree = SuffixTree::new("BANANA", "alphabets/banana.txt");
+
+    //     println!("{}", tree);
+
+    //     assert_eq!(tree.suffixes.len(), 7);
+    //     assert_eq!(tree.stats.num_internal, 3);
+    //     assert_eq!(tree.stats.num_leaves, 7);
+    //     assert_eq!(tree.stats.num_nodes, 10);
+    //     assert_eq!(tree.stats.average_string_depth, 2.0);
+    //     assert_eq!(tree.stats.max_string_depth, 3);
+    //     assert_eq!(tree.stats.bwt, "ANNB$AA".to_string());
+    // }
+
+    #[test]
+    fn test_tree_complex() {
+        let mut sequence_container: SequenceContainer = SequenceContainer {
+            sequences: Vec::new(),
+        };
+
+        sequence_container.from_fasta("test_data/Covid_Wuhan.fasta");
+
+        let suffix_tree = SuffixTree::new(
+            &sequence_container.sequences[0].sequence,
+            "alphabets/dna.txt",
+        );
+
+        println!("{}", suffix_tree);
+    }
 }

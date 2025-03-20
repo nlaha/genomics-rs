@@ -15,13 +15,15 @@ impl Display for TreeStats {
             Average string depth: {}
             Max string depth: {}
             BWT: {}
+            BWT Length: {}
             ",
             self.num_internal,
             self.num_leaves,
             self.num_nodes,
             self.average_string_depth,
             self.max_string_depth,
-            self.bwt
+            self.bwt,
+            self.bwt.len()
         )
     }
 }
