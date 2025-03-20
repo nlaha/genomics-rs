@@ -110,6 +110,11 @@ fn main() {
                 alphabet_file,
             );
 
+            // delete bwt file if it exists
+            if let Err(e) = std::fs::remove_file("bwt.txt") {
+                eprintln!("Couldn't delete file: {}", e);
+            }
+
             let mut out_file = OpenOptions::new()
                 .create(true)
                 .write(true)
