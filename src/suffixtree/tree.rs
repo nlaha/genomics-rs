@@ -395,19 +395,19 @@ mod test {
 
     use super::SuffixTree;
 
-    // #[test]
-    // fn test_tree_simple() {
-    //     let tree = SuffixTree::new("A", "alphabets/dna.txt");
+    #[test]
+    fn test_tree_simple() {
+        let tree = SuffixTree::new("A", "alphabets/dna.txt");
 
-    //     assert_eq!(tree.suffixes.len(), 2);
-    // }
+        assert_eq!(tree.suffixes.len(), 2);
+    }
 
-    // #[test]
-    // fn test_tree_simple2() {
-    //     let tree = SuffixTree::new("ACA", "alphabets/dna.txt");
+    #[test]
+    fn test_tree_simple2() {
+        let tree = SuffixTree::new("ACA", "alphabets/dna.txt");
 
-    //     assert_eq!(tree.suffixes.len(), 4);
-    // }
+        assert_eq!(tree.suffixes.len(), 4);
+    }
 
     #[test]
     fn test_tree_simple3() {
@@ -416,27 +416,34 @@ mod test {
         println!("{}", tree);
 
         assert_eq!(tree.suffixes.len(), 7);
-        assert_eq!(tree.stats.num_internal, 3);
+        assert_eq!(tree.stats.num_internal, 4);
         assert_eq!(tree.stats.num_leaves, 7);
-        assert_eq!(tree.stats.num_nodes, 10);
-        assert_eq!(tree.stats.average_string_depth, 2.0);
-        assert_eq!(tree.stats.max_string_depth, 3);
+        assert_eq!(tree.stats.num_nodes, 11);
+        assert_eq!(tree.stats.average_string_depth, 2.4285714285714284);
+        assert_eq!(tree.stats.max_string_depth, 7);
         assert_eq!(tree.stats.bwt, "ANNB$AA".to_string());
     }
 
-    // #[test]
-    // fn test_tree_complex() {
-    //     let mut sequence_container: SequenceContainer = SequenceContainer {
-    //         sequences: Vec::new(),
-    //     };
+    #[test]
+    fn test_tree_complex() {
+        let mut sequence_container: SequenceContainer = SequenceContainer {
+            sequences: Vec::new(),
+        };
 
-    //     sequence_container.from_fasta("test_data/Covid_Wuhan.fasta");
+        sequence_container.from_fasta("test_data/Covid_Wuhan.fasta");
 
-    //     let suffix_tree = SuffixTree::new(
-    //         &sequence_container.sequences[0].sequence,
-    //         "alphabets/dna.txt",
-    //     );
+        let suffix_tree = SuffixTree::new(
+            &sequence_container.sequences[0].sequence,
+            "alphabets/dna.txt",
+        );
 
-    //     println!("{}", suffix_tree);
-    // }
+        // load BWT from file and compare to the computed BWT line by line
+        let bwt = std::fs::read_to_string("BWTs/Covid_Wuhan.fasta.BWT.out")
+            .unwrap()
+            .replace("\n", "");
+
+        for (computed, expected) in suffix_tree.stats.bwt.chars().zip(bwt.chars()) {
+            assert_eq!(computed, expected);
+        }
+    }
 }
