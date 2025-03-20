@@ -6,7 +6,7 @@ use config::Config;
 use log::info;
 use pretty_env_logger;
 use sequence::{SequenceContainer, SequenceOperations};
-use std::env;
+use std::{env, fs::OpenOptions, io::Write};
 
 mod alignment;
 mod config;
@@ -109,6 +109,20 @@ fn main() {
                 &sequence_container.sequences[0].sequence,
                 alphabet_file,
             );
+
+            let mut out_file = OpenOptions::new()
+                .create(true)
+                .write(true)
+                .append(true)
+                .open("bwt.txt")
+                .unwrap();
+
+            // write bwt to file
+            for c in suffix_tree.stats.bwt.chars() {
+                if let Err(e) = writeln!(out_file, "{}", c) {
+                    eprintln!("Couldn't write to file: {}", e);
+                }
+            }
 
             info!("{}", suffix_tree);
         }

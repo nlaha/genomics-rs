@@ -1,4 +1,4 @@
-use std::cell::{Ref, RefCell};
+use std::cell::RefCell;
 use std::panic;
 use std::rc::Rc;
 
@@ -151,7 +151,6 @@ impl SuffixTree {
 
         // compute burrows-wheeler transform
         let mut bwt: Vec<char> = vec![' '; tree.original_string.len()];
-        println!("[BWT] Original string: {}", tree.original_string);
         let mut idx = 0;
         tree.dfs(&mut |node: Rc<TreeNode>| {
             // if it's a leaf
@@ -327,7 +326,7 @@ impl SuffixTree {
             let child_node: Option<Rc<TreeNode>> =
                 current_node.children.borrow()[child_idx].clone();
 
-            info!(
+            debug!(
                 "Finding next child node for {}, child idx: {}",
                 c, child_idx
             );
@@ -369,24 +368,22 @@ impl SuffixTree {
 
 #[cfg(test)]
 mod test {
-    use log::info;
 
     use super::SuffixTree;
-    use crate::sequence::{SequenceContainer, SequenceOperations};
 
-    // #[test]
-    // fn test_tree_simple() {
-    //     let tree = SuffixTree::new("A", "alphabets/dna.txt");
+    #[test]
+    fn test_tree_simple() {
+        let tree = SuffixTree::new("A", "alphabets/dna.txt");
 
-    //     assert_eq!(tree.suffixes.len(), 1);
-    // }
+        assert_eq!(tree.suffixes.len(), 2);
+    }
 
-    // #[test]
-    // fn test_tree_simple2() {
-    //     let tree = SuffixTree::new("ACA", "alphabets/dna.txt");
+    #[test]
+    fn test_tree_simple2() {
+        let tree = SuffixTree::new("ACA", "alphabets/dna.txt");
 
-    //     assert_eq!(tree.suffixes.len(), 3);
-    // }
+        assert_eq!(tree.suffixes.len(), 4);
+    }
 
     #[test]
     fn test_tree_simple3() {
@@ -400,6 +397,7 @@ mod test {
         assert_eq!(tree.stats.num_nodes, 10);
         assert_eq!(tree.stats.average_string_depth, 2.0);
         assert_eq!(tree.stats.max_string_depth, 3);
+        assert_eq!(tree.stats.bwt, "ANNB$AA".to_string());
     }
 
     // #[test]

@@ -1,6 +1,6 @@
 use std::{fs, process::exit};
 
-use log::{error, info};
+use log::error;
 use serde_derive::Deserialize;
 
 #[derive(Deserialize, Clone)]

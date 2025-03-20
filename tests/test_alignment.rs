@@ -14,7 +14,7 @@ const TEST_CONFIG: Config = Config {
 mod test_alignment {
     use genomics_rs::alignment::algo::{AlignedSequences, AlignmentChoice::*};
     use genomics_rs::{
-        alignment::{self, algo::AlignmentChoice},
+        alignment::{self},
         sequence::{Sequence, SequenceContainer},
     }; // Import enum variants
 
