@@ -32,21 +32,24 @@ impl Display for SuffixTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // // dfs traversal of the tree
         // let mut graph = Graph::<String, String>::new();
-        // let mut parent: Option<Rc<TreeNode>> = None;
-        // self.dfs(&mut |node: Rc<TreeNode>| {
+        // self.dfs(&mut |node: TreeNode| {
         //     let node_idx = graph.add_node(node.id.to_string());
-        //     parent = node.parent.borrow().clone();
 
-        //     match &parent {
+        //     match node.parent {
         //         Some(parent) => {
+        //             let parent_ref = self.nodes[parent].as_ref().unwrap();
         //             let parent_idx = graph
         //                 .node_indices()
         //                 .find(|idx| {
         //                     let node: &String = graph.node_weight(*idx).unwrap();
-        //                     node == &parent.id.to_string()
+        //                     node == &parent_ref.id.to_string()
         //                 })
         //                 .unwrap();
-        //             graph.add_edge(parent_idx, node_idx, node.edge.borrow().label.to_string());
+        //             graph.add_edge(
+        //                 parent_idx,
+        //                 node_idx,
+        //                 self.original_string[node.edge_start..node.edge_end].to_string(),
+        //             );
         //         }
         //         None => {
         //             // root node case
@@ -60,6 +63,7 @@ impl Display for SuffixTree {
         //     Dot::with_config(&graph, &[petgraph::dot::Config::NodeNoLabel])
         // )?;
 
+        //writeln!(f, "Grpahviz: {}", Dot::new(&graph))?;
         writeln!(f, "Stats: {}", self.stats)
     }
 }
