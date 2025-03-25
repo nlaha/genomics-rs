@@ -1,6 +1,5 @@
-use std::cell::RefCell;
 use std::panic;
-use std::rc::Rc;
+use std::time::Instant;
 
 use log::{debug, info};
 
@@ -57,12 +56,14 @@ impl SuffixTree {
         let string_length = original_string.len();
 
         // load alphabet from file
-        let alphabet = match std::fs::read_to_string(alphabet_file) {
-            Ok(a) => a.chars().collect::<Vec<char>>(),
+        let mut alphabet = match std::fs::read_to_string(alphabet_file) {
+            Ok(a) => a.replace(" ", "").chars().collect::<Vec<char>>(),
             Err(_) => {
                 panic!("Could not read alphabet file: {}", alphabet_file);
             }
         };
+
+        alphabet.insert(0, '$');
 
         let mut alphabet_sorted = alphabet.clone();
         alphabet_sorted.sort();
@@ -93,18 +94,29 @@ impl SuffixTree {
             edge_end: 0,
         });
 
+        let before_tree = Instant::now();
+
         // build a set of suffixes with '$' appended to the end
         for i in 0..string_length + 1 {
             let suffix = tree.original_string[i..].to_string();
             // if suffix is longer than 100 characters, truncate it
             if suffix.len() > 100 {
-                info!("[FindPath] {}/{} {}...", i, string_length, &suffix[..100]);
+                debug!("[FindPath] {}/{} {}...", i, string_length, &suffix[..100]);
             } else {
-                info!("[FindPath] {}/{} {}", i, string_length, suffix);
+                debug!("[FindPath] {}/{} {}", i, string_length, suffix);
             }
             tree.suffixes.push(suffix.to_string());
             tree.find_path(i);
         }
+
+        let after_tree = Instant::now();
+
+        let elapsed = after_tree.duration_since(before_tree).as_micros();
+        let elapsed_millis = after_tree.duration_since(before_tree).as_millis();
+        info!(
+            "[FindPath] Time taken to build suffix tree: {} us ({} ms)",
+            elapsed, elapsed_millis
+        );
 
         tree.compute_stats();
 
@@ -116,11 +128,11 @@ impl SuffixTree {
      * in the suffix tree
      */
     pub fn display_string_depth(&self, f: &mut std::fmt::Formatter<'_>) {
-        writeln!(f, "String Depth: depth (node ID)");
+        writeln!(f, "String Depth: depth (node ID)").unwrap();
         self.dfs(&mut |node: TreeNode| {
-            write!(f, "{} (n{}), ", node.string_depth, node.id);
+            write!(f, "{} (n{}), ", node.string_depth, node.id).unwrap();
         });
-        writeln!(f, "\n");
+        writeln!(f, "\n").unwrap();
     }
 
     /**

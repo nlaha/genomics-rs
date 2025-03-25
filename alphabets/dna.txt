@@ -1,1 +1,1 @@
-$ACGT
+A C G T

@@ -1,4 +1,4 @@
-use std::{fmt::Display, rc::Rc};
+use std::fmt::Display;
 
 use petgraph::{dot::Dot, Graph};
 
@@ -9,21 +9,25 @@ impl Display for TreeStats {
         write!(
             f,
             "
+            BWT: {}
+            BWT Length: {}
             Internal nodes: {}
             Leaves: {}
             Nodes: {}
             Average string depth: {}
             Max string depth: {}
-            BWT: {}
-            BWT Length: {}
             ",
+            if self.bwt.len() > 100 {
+                self.bwt[..100].to_string() + "... (truncated)"
+            } else {
+                self.bwt.to_string()
+            },
+            self.bwt.len(),
             self.num_internal,
             self.num_leaves,
             self.num_nodes,
             self.average_string_depth,
-            self.max_string_depth,
-            self.bwt,
-            self.bwt.len()
+            self.max_string_depth
         )
     }
 }
@@ -67,8 +71,8 @@ impl Display for SuffixTree {
         }
 
         //writeln!(f, "Grpahviz: {}", Dot::new(&graph))?;
-        self.display_string_depth(f);
+        //self.display_string_depth(f);
 
-        writeln!(f, "Stats: {}", self.stats)
+        writeln!(f, "\nStats: {}", self.stats)
     }
 }
