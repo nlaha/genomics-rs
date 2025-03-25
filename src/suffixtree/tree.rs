@@ -106,49 +106,68 @@ impl SuffixTree {
             tree.find_path(i);
         }
 
-        tree.stats.average_string_depth = tree
-            .nodes
-            .iter()
-            .flatten()
-            .map(|n| n.string_depth)
-            .sum::<usize>() as f64
-            / tree.nodes.len() as f64;
-        tree.stats.max_string_depth = tree
-            .nodes
-            .iter()
-            .flatten()
-            .map(|n| n.string_depth)
-            .max()
-            .unwrap_or(0);
+        tree.compute_stats();
 
+        return tree;
+    }
+
+    /**
+     * Prints the string depth of each node from left to right
+     * in the suffix tree
+     */
+    pub fn display_string_depth(&self, f: &mut std::fmt::Formatter<'_>) {
+        writeln!(f, "String Depth: depth (node ID)");
+        self.dfs(&mut |node: TreeNode| {
+            write!(f, "{} (n{}), ", node.string_depth, node.id);
+        });
+        writeln!(f, "\n");
+    }
+
+    /**
+     * Computes the statistics of the suffix tree
+     * as well as the Burrows-Wheeler Transform
+     */
+    pub fn compute_stats(&mut self) {
         // compute burrows-wheeler transform
-        let mut bwt: Vec<char> = vec![' '; tree.original_string.len()];
-        let mut idx = 0;
+        let mut bwt: Vec<char> = vec![' '; self.original_string.len()];
+        let mut idx: usize = 0;
         let mut num_leaves = 0;
         let mut num_internal = 0;
+        let mut max_string_depth = 0;
+        let mut string_depth_sum = 0;
 
-        tree.dfs(&mut |node: TreeNode| {
+        self.dfs(&mut |node: TreeNode| {
             // if it's a leaf
-            if node.id > 0 && node.id < tree.suffixes.len() + 1 && idx < tree.original_string.len()
+            if node.id > 0 && node.id < self.suffixes.len() + 1 && idx < self.original_string.len()
             {
                 num_leaves += 1;
                 if node.id == 1 {
                     bwt[idx] = '$';
                 } else {
-                    bwt[idx] = tree.original_string.as_bytes()[node.id - 2] as char;
+                    bwt[idx] = self.original_string.as_bytes()[node.id - 2] as char;
                 }
                 idx += 1;
             } else {
+                // don't count the root node
+                if node.id == 0 {
+                    return;
+                }
+
                 num_internal += 1;
+                string_depth_sum += node.string_depth;
+                if node.string_depth > max_string_depth {
+                    max_string_depth = node.string_depth;
+                }
             }
         });
 
-        tree.stats.num_leaves = num_leaves;
-        tree.stats.num_internal = num_internal;
-        tree.stats.num_nodes = tree.stats.num_internal + tree.stats.num_leaves;
-        tree.stats.bwt = bwt.iter().collect::<String>().trim().to_string();
+        self.stats.num_leaves = num_leaves;
+        self.stats.num_internal = num_internal;
+        self.stats.num_nodes = self.stats.num_internal + self.stats.num_leaves + 1;
+        self.stats.bwt = bwt.iter().collect::<String>().trim().to_string();
 
-        return tree;
+        self.stats.average_string_depth = string_depth_sum as f64 / self.stats.num_internal as f64;
+        self.stats.max_string_depth = max_string_depth;
     }
 
     pub fn add_child(&mut self, parent: usize, child: TreeNode) {
@@ -416,16 +435,16 @@ mod test {
         println!("{}", tree);
 
         assert_eq!(tree.suffixes.len(), 7);
-        assert_eq!(tree.stats.num_internal, 4);
+        assert_eq!(tree.stats.num_internal, 3);
         assert_eq!(tree.stats.num_leaves, 7);
         assert_eq!(tree.stats.num_nodes, 11);
-        assert_eq!(tree.stats.average_string_depth, 2.4285714285714284);
-        assert_eq!(tree.stats.max_string_depth, 7);
+        assert_eq!(tree.stats.average_string_depth, 2.0);
+        assert_eq!(tree.stats.max_string_depth, 3);
         assert_eq!(tree.stats.bwt, "ANNB$AA".to_string());
     }
 
     #[test]
-    fn test_tree_complex() {
+    fn test_tree_covid_wuhan() {
         let mut sequence_container: SequenceContainer = SequenceContainer {
             sequences: Vec::new(),
         };
@@ -439,6 +458,29 @@ mod test {
 
         // load BWT from file and compare to the computed BWT line by line
         let bwt = std::fs::read_to_string("BWTs/Covid_Wuhan.fasta.BWT.out")
+            .unwrap()
+            .replace("\n", "");
+
+        for (computed, expected) in suffix_tree.stats.bwt.chars().zip(bwt.chars()) {
+            assert_eq!(computed, expected);
+        }
+    }
+
+    #[test]
+    fn test_tree_slyco() {
+        let mut sequence_container: SequenceContainer = SequenceContainer {
+            sequences: Vec::new(),
+        };
+
+        sequence_container.from_fasta("test_data/Slyco.fasta");
+
+        let suffix_tree = SuffixTree::new(
+            &sequence_container.sequences[0].sequence,
+            "alphabets/dna.txt",
+        );
+
+        // load BWT from file and compare to the computed BWT line by line
+        let bwt = std::fs::read_to_string("BWTs/Slyco.fas.BWT.out")
             .unwrap()
             .replace("\n", "");
 
