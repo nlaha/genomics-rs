@@ -14,6 +14,7 @@ pub struct TreeNode {
     pub children: Vec<Option<usize>>,
     pub edge_start: usize,
     pub edge_end: usize,
+    pub suffix_link: Option<usize>,
 }
 
 pub struct TreeStats {
@@ -34,6 +35,10 @@ pub struct SuffixTree {
     pub alphabet: Vec<char>,
     pub nodes: Vec<Option<TreeNode>>,
     pub stats: TreeStats,
+
+    // used for keeping track of the current node
+    // when traveling by suffix-links
+    current_node: usize,
 }
 
 /**
@@ -83,6 +88,7 @@ impl SuffixTree {
                 max_string_depth: 0,
                 bwt: "".to_string(),
             },
+            current_node: 0,
         };
 
         tree.nodes[0] = Some(TreeNode {
@@ -92,6 +98,7 @@ impl SuffixTree {
             children: vec![None; tree.alphabet.len()],
             edge_start: 0,
             edge_end: 0,
+            suffix_link: Some(0),
         });
 
         let before_tree = Instant::now();
@@ -107,6 +114,7 @@ impl SuffixTree {
             }
             tree.suffixes.push(suffix.to_string());
             tree.find_path(i);
+            tree.suffix_link_traversal()
         }
 
         let after_tree = Instant::now();
@@ -121,6 +129,33 @@ impl SuffixTree {
         tree.compute_stats();
 
         return tree;
+    }
+
+    /**
+     * Follows the suffix link
+     */
+    fn suffix_link_traversal(&mut self) {
+        self.current_node = match self.nodes[self.current_node].as_ref() {
+            Some(node) => {
+                // check to see if this node's parent has a suffix link
+                // (we should always have a parent here)
+                let parent = self.nodes[node.parent.unwrap()].as_ref().unwrap();
+
+                match parent.suffix_link {
+                    // CASE 1 - parent
+                    Some(suffix_link) => suffix_link,
+                    None => {
+                        // CASE 2 - grandparent
+                        // (if we're here we know we have a grandparent with a suffix link
+                        let grandparent = self.nodes[parent.parent.unwrap()].as_ref().unwrap();
+                        grandparent.suffix_link.expect(
+                            format!("Grandparent {} has no suffix link", grandparent.id).as_str(),
+                        )
+                    }
+                }
+            }
+            None => 0,
+        };
     }
 
     /**
@@ -182,6 +217,9 @@ impl SuffixTree {
         self.stats.max_string_depth = max_string_depth;
     }
 
+    /**
+     * Adds a child node to the given parent node
+     */
     pub fn add_child(&mut self, parent: usize, child: TreeNode) {
         // figure out where we should insert it
         let child_idx = match self.original_string.bytes().nth(child.edge_start) {
@@ -231,7 +269,7 @@ impl SuffixTree {
         break_idx: usize,
         leaf_start: usize,
         leaf_end: usize,
-    ) {
+    ) -> usize {
         // if it doesn't have a parent, panic
         let node_ref = &mut self.nodes[node]
             .as_mut()
@@ -257,7 +295,7 @@ impl SuffixTree {
             self.create_internal_node(parent, node, original_label_start, break_idx);
 
         // add the leaf on the new internal node
-        self.create_leaf(new_internal_node, leaf_start, leaf_end);
+        return self.create_leaf(new_internal_node, leaf_start, leaf_end);
     }
 
     /**
@@ -286,6 +324,7 @@ impl SuffixTree {
             children: vec![None; self.alphabet.len()],
             edge_start: edge_start,
             edge_end: edge_end,
+            suffix_link: None, // TODO: implement suffix links
         };
 
         self.last_internal_id += 1;
@@ -321,6 +360,7 @@ impl SuffixTree {
             children: vec![None; self.alphabet.len()],
             edge_start: edge_start,
             edge_end: edge_end,
+            suffix_link: None,
         };
 
         self.last_leaf_id += 1;
@@ -334,7 +374,9 @@ impl SuffixTree {
      * Walks down the tree and inserts new leaf for the given suffix
      */
     pub fn find_path(&mut self, suffix_idx: usize) {
-        let mut current_node = self.nodes[0].as_ref().expect("Root node not found");
+        let mut current_node = self.nodes[self.current_node]
+            .as_ref()
+            .expect("Root node not found");
         let suffix_len = self.original_string.len() - suffix_idx;
 
         // how far we've already walked down the suffix
@@ -363,7 +405,7 @@ impl SuffixTree {
                 );
 
                 if suffix_char != c {
-                    self.break_edge(
+                    self.current_node = self.break_edge(
                         current_node.id,
                         label_idx,
                         // leaf label is the position we're at in the suffix
@@ -380,6 +422,7 @@ impl SuffixTree {
             debug!("Done with edge of current node {}", current_node.id);
 
             if suffix_sub_idx >= suffix_len {
+                self.current_node = current_node.id;
                 return;
             }
 
@@ -407,7 +450,7 @@ impl SuffixTree {
                 // there's no child node, so we need to add a new leaf
                 None => {
                     debug!("No child node found, adding new leaf");
-                    self.create_leaf(
+                    self.current_node = self.create_leaf(
                         current_node.id,
                         suffix_idx + suffix_sub_idx,
                         self.original_string.len(),

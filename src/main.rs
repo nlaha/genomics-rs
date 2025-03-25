@@ -84,6 +84,8 @@ fn main() {
     // Extract alignment_type from the Command variant
     match &args.mode {
         Command::Align { alignment_type } => {
+            info!("MODE: {}", "Alignment".bright_yellow().bold());
+
             // log config
             info!("Using the following values for scoring:");
             info!("Match: {}", config.scores.s_match);
@@ -103,7 +105,7 @@ fn main() {
             info!("{}", alignment);
         }
         Command::SuffixTree { alphabet_file } => {
-            info!("{}", "Suffix Tree".bright_green());
+            info!("MODE: {}", "Suffix Tree".bright_green().bold());
 
             let suffix_tree = suffixtree::tree::SuffixTree::new(
                 &sequence_container.sequences[0].sequence,
