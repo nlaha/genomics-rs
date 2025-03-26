@@ -23,6 +23,9 @@ enum Command {
     SuffixTree {
         #[arg(short, long)]
         alphabet_file: String,
+
+        #[arg(short, long, default_value_t = false)]
+        suffix_links: bool,
     },
 }
 
@@ -48,7 +51,7 @@ fn main() {
 
     // set default log level
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "debug")
+        env::set_var("RUST_LOG", "info")
     }
 
     // init logging
@@ -104,12 +107,16 @@ fn main() {
 
             info!("{}", alignment);
         }
-        Command::SuffixTree { alphabet_file } => {
+        Command::SuffixTree {
+            alphabet_file,
+            suffix_links,
+        } => {
             info!("MODE: {}", "Suffix Tree".bright_green().bold());
 
             let suffix_tree = suffixtree::tree::SuffixTree::new(
                 &sequence_container.sequences[0].sequence,
                 alphabet_file,
+                *suffix_links,
             );
 
             // delete bwt file if it exists

@@ -39,7 +39,6 @@ pub struct SuffixTree {
     // used for keeping track of the current node
     // when traveling by suffix-links
     current_node: usize,
-    last_node_inserted: usize,
     last_u: usize,
 }
 
@@ -59,7 +58,11 @@ impl SuffixTree {
     /**
      * Create a new suffix tree with a given number of children
      */
-    pub fn new(original_string: &str, alphabet_file: &str) -> SuffixTree {
+    pub fn new(
+        original_string: &str,
+        alphabet_file: &str,
+        enable_suffix_links: bool,
+    ) -> SuffixTree {
         let string_length = original_string.len();
 
         // load alphabet from file
@@ -90,7 +93,6 @@ impl SuffixTree {
                 max_string_depth: 0,
                 bwt: "".to_string(),
             },
-            last_node_inserted: 0,
             last_u: 0,
             current_node: 0,
         };
@@ -118,7 +120,11 @@ impl SuffixTree {
             }
             tree.suffixes.push(suffix.to_string());
             tree.find_path(i);
-            tree.suffix_link_traversal()
+            if enable_suffix_links {
+                tree.suffix_link_traversal()
+            } else {
+                tree.current_node = 0;
+            }
         }
 
         let after_tree = Instant::now();
@@ -168,7 +174,7 @@ impl SuffixTree {
                 debug!("CASE 1: v = {}", u_sl);
                 if u_idx == 0 {
                     // CASE 1A - u is the root node
-                    // go to v
+                    // go to v (the root)
                     u_sl
                 } else {
                     // CASE 1B - u is not the root node
@@ -521,21 +527,21 @@ mod test {
 
     #[test]
     fn test_tree_simple() {
-        let tree = SuffixTree::new("A", "alphabets/dna.txt");
+        let tree = SuffixTree::new("A", "alphabets/dna.txt", true);
 
         assert_eq!(tree.suffixes.len(), 2);
     }
 
     #[test]
     fn test_tree_simple2() {
-        let tree = SuffixTree::new("ACA", "alphabets/dna.txt");
+        let tree = SuffixTree::new("ACA", "alphabets/dna.txt", true);
 
         assert_eq!(tree.suffixes.len(), 4);
     }
 
     #[test]
     fn test_tree_simple3() {
-        let tree = SuffixTree::new("BANANA", "alphabets/banana.txt");
+        let tree = SuffixTree::new("BANANA", "alphabets/banana.txt", true);
 
         println!("{}", tree);
 
@@ -549,6 +555,21 @@ mod test {
     }
 
     #[test]
+    fn test_tree_simple4() {
+        let tree = SuffixTree::new("MISSISSIPPI", "alphabets/english.txt", true);
+
+        println!("{}", tree);
+
+        assert_eq!(tree.suffixes.len(), 12);
+        assert_eq!(tree.stats.num_internal, 6);
+        assert_eq!(tree.stats.num_leaves, 12);
+        assert_eq!(tree.stats.num_nodes, 19);
+        assert_eq!(tree.stats.average_string_depth, 2.0);
+        assert_eq!(tree.stats.max_string_depth, 4);
+        assert_eq!(tree.stats.bwt, "IPSSM$PISSII".to_string());
+    }
+
+    #[test]
     fn test_tree_covid_wuhan() {
         let mut sequence_container: SequenceContainer = SequenceContainer {
             sequences: Vec::new(),
@@ -559,6 +580,7 @@ mod test {
         let suffix_tree = SuffixTree::new(
             &sequence_container.sequences[0].sequence,
             "alphabets/dna.txt",
+            true,
         );
 
         // load BWT from file and compare to the computed BWT line by line
@@ -566,31 +588,38 @@ mod test {
             .unwrap()
             .replace("\n", "");
 
+        let mut idx = 0;
+        for (computed, expected) in suffix_tree.stats.bwt.chars().zip(bwt.chars()) {
+            assert_eq!(
+                computed, expected,
+                "[idx {}] Computed: {}, Expected: {}",
+                idx, computed, expected
+            );
+            idx += 1;
+        }
+    }
+
+    #[test]
+    fn test_tree_slyco() {
+        let mut sequence_container: SequenceContainer = SequenceContainer {
+            sequences: Vec::new(),
+        };
+
+        sequence_container.from_fasta("test_data/Slyco.fasta");
+
+        let suffix_tree = SuffixTree::new(
+            &sequence_container.sequences[0].sequence,
+            "alphabets/dna.txt",
+            true,
+        );
+
+        // load BWT from file and compare to the computed BWT line by line
+        let bwt = std::fs::read_to_string("BWTs/Slyco.fas.BWT.out")
+            .unwrap()
+            .replace("\n", "");
+
         for (computed, expected) in suffix_tree.stats.bwt.chars().zip(bwt.chars()) {
             assert_eq!(computed, expected);
         }
     }
-
-    // #[test]
-    // fn test_tree_slyco() {
-    //     let mut sequence_container: SequenceContainer = SequenceContainer {
-    //         sequences: Vec::new(),
-    //     };
-
-    //     sequence_container.from_fasta("test_data/Slyco.fasta");
-
-    //     let suffix_tree = SuffixTree::new(
-    //         &sequence_container.sequences[0].sequence,
-    //         "alphabets/dna.txt",
-    //     );
-
-    //     // load BWT from file and compare to the computed BWT line by line
-    //     let bwt = std::fs::read_to_string("BWTs/Slyco.fas.BWT.out")
-    //         .unwrap()
-    //         .replace("\n", "");
-
-    //     for (computed, expected) in suffix_tree.stats.bwt.chars().zip(bwt.chars()) {
-    //         assert_eq!(computed, expected);
-    //     }
-    // }
 }

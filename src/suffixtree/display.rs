@@ -1,5 +1,6 @@
-use std::fmt::Display;
+use std::{env, fmt::Display};
 
+use log::warn;
 use petgraph::{dot::Dot, Graph};
 
 use super::tree::{SuffixTree, TreeNode, TreeStats};
@@ -34,14 +35,17 @@ impl Display for TreeStats {
 
 impl Display for SuffixTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // if the number of nodes is < 20, compute graphviz
-        if self.nodes.len() < 20 {
+        // if the number of nodes is < 50, compute graphviz
+        if self.nodes.len() < 50 {
             let dot = self.write_graphviz();
             writeln!(f, "Graphviz:\n {}", dot)?;
+        } else {
+            warn!("Graphviz output is too large to display.",);
         }
 
-        //writeln!(f, "Grpahviz: {}", Dot::new(&graph))?;
-        self.display_string_depth(f);
+        if env::var("RUST_LOG") == Ok("debug".to_string()) {
+            self.display_string_depth(f);
+        }
 
         writeln!(f, "\nStats: {}", self.stats)
     }
@@ -94,7 +98,7 @@ impl SuffixTree {
                             node == &c_node.id.to_string()
                         })
                         .unwrap();
-                    graph.add_edge(node_idx, suffix_link_idx, "[SL]".to_string());
+                    graph.add_edge(node_idx, suffix_link_idx, "*".to_string());
                 }
             }
         }
