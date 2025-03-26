@@ -1,5 +1,5 @@
-use std::panic;
 use std::time::Instant;
+use std::{panic, thread::current};
 
 use log::{debug, info};
 
@@ -35,11 +35,6 @@ pub struct SuffixTree {
     pub alphabet: Vec<char>,
     pub nodes: Vec<Option<TreeNode>>,
     pub stats: TreeStats,
-
-    // used for keeping track of the current node
-    // when traveling by suffix-links
-    current_node: usize,
-    last_u: usize,
 }
 
 /**
@@ -93,8 +88,6 @@ impl SuffixTree {
                 max_string_depth: 0,
                 bwt: "".to_string(),
             },
-            last_u: 0,
-            current_node: 0,
         };
 
         tree.nodes[0] = Some(TreeNode {
@@ -119,11 +112,10 @@ impl SuffixTree {
                 debug!("[FindPath] {}/{} {}", i, string_length, suffix);
             }
             tree.suffixes.push(suffix.to_string());
-            tree.find_path(i);
             if enable_suffix_links {
-                tree.suffix_link_traversal()
+                tree.suffix_link_traversal(i);
             } else {
-                tree.current_node = 0;
+                tree.find_path(i, 0);
             }
         }
 
@@ -136,50 +128,40 @@ impl SuffixTree {
             elapsed, elapsed_millis
         );
 
-        tree.compute_stats();
-
         return tree;
     }
 
     /**
      * Follows the suffix link
      */
-    fn suffix_link_traversal(&mut self) {
+    fn suffix_link_traversal(&mut self, suffix_idx: usize) {
         // update suffix link
         let u_idx = self.nodes[self.last_leaf_id - 1]
             .as_ref()
             .unwrap()
             .parent
-            .unwrap();
-        let u_sl = self.nodes[u_idx].as_mut().unwrap().suffix_link;
+            .unwrap_or(0);
 
-        // link the last u to the last leaf's parent node
-        if self.last_u != 0 {
-            // if the string depth of last_u is 1, link to the root node
-            if self.nodes[self.last_u].as_ref().unwrap().string_depth == 1 {
-                debug!("Linking last u {} to root", self.last_u);
-                self.nodes[self.last_u].as_mut().unwrap().suffix_link = Some(0);
-            } else {
-                debug!("Linking last u {} to v {}", self.last_u, u_idx);
-                self.nodes[self.last_u].as_mut().unwrap().suffix_link = Some(u_idx);
-            }
-        }
+        let v_idx = self.nodes[u_idx].as_mut().unwrap().suffix_link;
+
+        let mut should_establish_link = false;
 
         // find the next node to go to
-        self.current_node = match u_sl {
-            Some(u_sl) => {
+        let v = match v_idx {
+            Some(v_idx) => {
                 // CASE 1
                 // suffix link is known (u is not the last node inserted)
+
                 debug!("CASE 1: u = {}", u_idx);
-                debug!("CASE 1: v = {}", u_sl);
+                debug!("CASE 1: v = {}", v_idx);
                 if u_idx == 0 {
                     // CASE 1A - u is the root node
                     // go to v (the root)
-                    u_sl
+                    v_idx
                 } else {
                     // CASE 1B - u is not the root node
                     // go to v
-                    u_sl
+                    v_idx
                 }
             }
             None => {
@@ -188,17 +170,49 @@ impl SuffixTree {
 
                 // get u' (the parent of u)
                 let u_prime = self.nodes[u_idx].as_ref().unwrap().parent.unwrap();
+
+                // get v' (the suffix link of u')
                 let u_prime_ref = self.nodes[u_prime].as_ref().unwrap();
-                debug!("CASE 2: u' = {}", u_prime_ref.id);
-                debug!("CASE 2: v' = {}", u_prime_ref.suffix_link.unwrap());
+                let v_prime = u_prime_ref.suffix_link.unwrap();
 
-                // update the last u
-                self.last_u = u_idx;
+                // get u so we can find the edge leading off of u' (beta')
+                let u_ref = self.nodes[u_idx].as_ref().unwrap();
 
-                // go to v' (or the root)
-                u_prime_ref.suffix_link.unwrap()
+                debug!("CASE 2: u' = {}", u_prime);
+                debug!("CASE 2: v' = {}", v_prime);
+                debug!("CASE 2: B' = {}->{}", u_ref.edge_start, u_ref.edge_end);
+
+                // go to v'
+                let v = match u_prime == 0 {
+                    // CASE 2B
+                    true => self.node_hops(v_prime, u_ref.edge_start + 1, u_ref.edge_end),
+
+                    // CASE 2A
+                    false => self.node_hops(v_prime, u_ref.edge_start, u_ref.edge_end),
+                };
+
+                debug!("After NodeHops: v is {}", v);
+
+                should_establish_link = true;
+
+                v
             }
         };
+
+        let new_leaf_idx = self.find_path(suffix_idx, 0);
+        let new_leaf_parent = self.nodes[new_leaf_idx].as_ref().unwrap().parent.unwrap();
+
+        // establish suffix link from u to v
+        if u_idx != 0 && should_establish_link {
+            // if the string depth of u is 1, link to the root node
+            if self.nodes[u_idx].as_ref().unwrap().string_depth == 1 {
+                debug!("Linking last u {} to root", u_idx);
+                self.nodes[u_idx].as_mut().unwrap().suffix_link = Some(0);
+            } else {
+                debug!("Linking last u {} to v {}", u_idx, new_leaf_parent);
+                self.nodes[u_idx].as_mut().unwrap().suffix_link = Some(new_leaf_parent);
+            }
+        }
 
         // print graphviz at this point
         debug!("\n{}", self.write_graphviz());
@@ -420,19 +434,58 @@ impl SuffixTree {
     }
 
     /**
+     * Hops down the tree until we reach a node where the edge label is
+     * greater than our suffix progress
+     */
+    pub fn node_hops(&self, current_node: usize, beta_start: usize, beta_end: usize) -> usize {
+        let beta_length: usize = beta_end - beta_start;
+        let mut current_node_ref = self.nodes[current_node].as_ref().unwrap();
+
+        loop {
+            // get first character of suffix (at this depth)
+            let c = self.original_string.as_bytes()[beta_start];
+            let child_idx: usize = get_child_index(&self.alphabet, c as char);
+            let child_node = current_node_ref.children[child_idx];
+
+            match child_node {
+                None => {
+                    debug!(
+                        "[NodeHops] Can't hop from {} anymore (no valid children)",
+                        current_node_ref.id
+                    );
+                    return current_node_ref.id;
+                }
+                Some(child_node) => {
+                    let child_node_ref = self.nodes[child_node].as_ref().unwrap();
+
+                    if current_node_ref.string_depth + child_node_ref.string_depth >= beta_length {
+                        debug!("[NodeHops] Can't hop from {} anymore", current_node_ref.id);
+                        return current_node_ref.id;
+                    } else {
+                        debug!(
+                            "[NodeHops] Hopping to {} from {}",
+                            current_node_ref.id, child_node
+                        );
+                        current_node_ref = child_node_ref;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * Walks down the tree and inserts new leaf for the given suffix
      */
-    pub fn find_path(&mut self, suffix_idx: usize) {
-        let mut current_node = self.nodes[self.current_node]
+    pub fn find_path(&mut self, suffix_idx: usize, start_node: usize) -> usize {
+        let mut current_node = self.nodes[start_node]
             .as_ref()
-            .expect(format!("Current node {} not found", self.current_node).as_str());
+            .expect(format!("Start node {} not found", start_node).as_str());
         let suffix_len = self.original_string.len() - suffix_idx;
 
         debug!("Current node: {}", current_node.id);
 
         // how far we've already walked down the suffix
         let mut suffix_sub_idx = current_node.string_depth;
-        // let mut suffix_sub_idx = 0;
 
         debug!(
             "Suffix sub-index: {}, suffix index: {}",
@@ -462,7 +515,7 @@ impl SuffixTree {
                 );
 
                 if suffix_char != c {
-                    self.current_node = self.break_edge(
+                    return self.break_edge(
                         current_node.id,
                         label_idx,
                         // leaf label is the position we're at in the suffix
@@ -470,7 +523,6 @@ impl SuffixTree {
                         suffix_idx + suffix_sub_idx,
                         self.original_string.len(),
                     );
-                    return;
                 }
 
                 suffix_sub_idx += 1;
@@ -479,7 +531,7 @@ impl SuffixTree {
             debug!("Done with edge of current node {}", current_node.id);
 
             if suffix_sub_idx >= suffix_len {
-                return;
+                return current_node.id;
             }
 
             // if we've reached the end of the edge label, move to the next node
@@ -506,12 +558,11 @@ impl SuffixTree {
                 // there's no child node, so we need to add a new leaf
                 None => {
                     debug!("No child node found, adding new leaf");
-                    self.create_leaf(
+                    return self.create_leaf(
                         current_node.id,
                         suffix_idx + suffix_sub_idx,
                         self.original_string.len(),
                     );
-                    return;
                 }
             }
         }
@@ -527,28 +578,33 @@ mod test {
 
     #[test]
     fn test_tree_simple() {
-        let tree = SuffixTree::new("A", "alphabets/dna.txt", true);
+        let mut tree = SuffixTree::new("A", "alphabets/dna.txt", true);
+        tree.compute_stats();
 
         assert_eq!(tree.suffixes.len(), 2);
     }
 
     #[test]
     fn test_tree_simple2() {
-        let tree = SuffixTree::new("ACA", "alphabets/dna.txt", true);
+        let mut tree = SuffixTree::new("ACA", "alphabets/dna.txt", true);
+        tree.compute_stats();
 
         assert_eq!(tree.suffixes.len(), 4);
     }
 
     #[test]
     fn test_tree_simple3() {
-        let tree = SuffixTree::new("BANANA", "alphabets/banana.txt", true);
+        let mut tree = SuffixTree::new("BANANA", "alphabets/banana.txt", true);
+        tree.compute_stats();
 
         println!("{}", tree);
 
         assert_eq!(tree.suffixes.len(), 7);
+
         assert_eq!(tree.stats.num_internal, 3);
         assert_eq!(tree.stats.num_leaves, 7);
         assert_eq!(tree.stats.num_nodes, 11);
+
         assert_eq!(tree.stats.average_string_depth, 2.0);
         assert_eq!(tree.stats.max_string_depth, 3);
         assert_eq!(tree.stats.bwt, "ANNB$AA".to_string());
@@ -556,14 +612,17 @@ mod test {
 
     #[test]
     fn test_tree_simple4() {
-        let tree = SuffixTree::new("MISSISSIPPI", "alphabets/english.txt", true);
+        let mut tree = SuffixTree::new("MISSISSIPPI", "alphabets/english.txt", true);
+        tree.compute_stats();
 
         println!("{}", tree);
 
         assert_eq!(tree.suffixes.len(), 12);
+
         assert_eq!(tree.stats.num_internal, 6);
         assert_eq!(tree.stats.num_leaves, 12);
         assert_eq!(tree.stats.num_nodes, 19);
+
         assert_eq!(tree.stats.average_string_depth, 2.0);
         assert_eq!(tree.stats.max_string_depth, 4);
         assert_eq!(tree.stats.bwt, "IPSSM$PISSII".to_string());
@@ -577,11 +636,16 @@ mod test {
 
         sequence_container.from_fasta("test_data/Covid_Wuhan.fasta");
 
-        let suffix_tree = SuffixTree::new(
+        let mut suffix_tree = SuffixTree::new(
             &sequence_container.sequences[0].sequence,
             "alphabets/dna.txt",
             true,
         );
+        suffix_tree.compute_stats();
+
+        assert_eq!(suffix_tree.stats.num_internal, 19098);
+        assert_eq!(suffix_tree.stats.num_leaves, 29904);
+        assert_eq!(suffix_tree.stats.num_nodes, 49003);
 
         // load BWT from file and compare to the computed BWT line by line
         let bwt = std::fs::read_to_string("BWTs/Covid_Wuhan.fasta.BWT.out")
@@ -600,6 +664,35 @@ mod test {
     }
 
     #[test]
+    fn test_tree_human_brca2() {
+        let mut sequence_container: SequenceContainer = SequenceContainer {
+            sequences: Vec::new(),
+        };
+
+        sequence_container.from_fasta("test_data/Human-BRCA2-cds.fasta");
+
+        let mut suffix_tree = SuffixTree::new(
+            &sequence_container.sequences[0].sequence,
+            "alphabets/dna.txt",
+            true,
+        );
+        suffix_tree.compute_stats();
+
+        assert_eq!(suffix_tree.stats.num_internal, 7299);
+        assert_eq!(suffix_tree.stats.num_leaves, 11383);
+        assert_eq!(suffix_tree.stats.num_nodes, 18683);
+
+        // load BWT from file and compare to the computed BWT line by line
+        let bwt = std::fs::read_to_string("BWTs/Human-BRCA2-cds.fasta.BWT.txt")
+            .unwrap()
+            .replace("\n", "");
+
+        for (computed, expected) in suffix_tree.stats.bwt.chars().zip(bwt.chars()) {
+            assert_eq!(computed, expected);
+        }
+    }
+
+    #[test]
     fn test_tree_slyco() {
         let mut sequence_container: SequenceContainer = SequenceContainer {
             sequences: Vec::new(),
@@ -607,11 +700,16 @@ mod test {
 
         sequence_container.from_fasta("test_data/Slyco.fasta");
 
-        let suffix_tree = SuffixTree::new(
+        let mut suffix_tree = SuffixTree::new(
             &sequence_container.sequences[0].sequence,
             "alphabets/dna.txt",
             true,
         );
+        suffix_tree.compute_stats();
+
+        assert_eq!(suffix_tree.stats.num_internal, 98972);
+        assert_eq!(suffix_tree.stats.num_leaves, 155462);
+        assert_eq!(suffix_tree.stats.num_nodes, 254435);
 
         // load BWT from file and compare to the computed BWT line by line
         let bwt = std::fs::read_to_string("BWTs/Slyco.fas.BWT.out")
@@ -622,4 +720,24 @@ mod test {
             assert_eq!(computed, expected);
         }
     }
+
+    // #[test]
+    // fn test_tree_chr12() {
+    //     let mut sequence_container: SequenceContainer = SequenceContainer {
+    //         sequences: Vec::new(),
+    //     };
+
+    //     sequence_container.from_fasta("test_data/chr12.fasta");
+
+    //     let mut suffix_tree = SuffixTree::new(
+    //         &sequence_container.sequences[0].sequence,
+    //         "alphabets/dna.txt",
+    //         true,
+    //     );
+    //     suffix_tree.compute_stats(false);
+
+    //     assert_eq!(suffix_tree.stats.num_internal, 699519);
+    //     assert_eq!(suffix_tree.stats.num_leaves, 1078176);
+    //     assert_eq!(suffix_tree.stats.num_nodes, 1777696);
+    // }
 }

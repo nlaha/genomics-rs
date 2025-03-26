@@ -26,6 +26,9 @@ enum Command {
 
         #[arg(short, long, default_value_t = false)]
         suffix_links: bool,
+
+        #[arg(short, long, default_value_t = true)]
+        stats: bool,
     },
 }
 
@@ -110,35 +113,41 @@ fn main() {
         Command::SuffixTree {
             alphabet_file,
             suffix_links,
+            stats,
         } => {
             info!("MODE: {}", "Suffix Tree".bright_green().bold());
+            info!("Suffix links: {}", suffix_links);
 
-            let suffix_tree = suffixtree::tree::SuffixTree::new(
+            let mut suffix_tree = suffixtree::tree::SuffixTree::new(
                 &sequence_container.sequences[0].sequence,
                 alphabet_file,
                 *suffix_links,
             );
 
-            // delete bwt file if it exists
-            if let Err(e) = std::fs::remove_file("bwt.txt") {
-                eprintln!("Couldn't delete file: {}", e);
-            }
+            if *stats {
+                suffix_tree.compute_stats();
 
-            let mut out_file = OpenOptions::new()
-                .create(true)
-                .write(true)
-                .append(true)
-                .open("bwt.txt")
-                .unwrap();
-
-            // write bwt to file
-            for c in suffix_tree.stats.bwt.chars() {
-                if let Err(e) = writeln!(out_file, "{}", c) {
-                    eprintln!("Couldn't write to file: {}", e);
+                // delete bwt file if it exists
+                if let Err(e) = std::fs::remove_file("bwt.txt") {
+                    eprintln!("Couldn't delete file: {}", e);
                 }
-            }
 
-            info!("{}", suffix_tree);
+                let mut out_file = OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .append(true)
+                    .open("bwt.txt")
+                    .unwrap();
+
+                // write bwt to file
+                for c in suffix_tree.stats.bwt.chars() {
+                    if let Err(e) = writeln!(out_file, "{}", c) {
+                        eprintln!("Couldn't write to file: {}", e);
+                    }
+                }
+
+                info!("{}", suffix_tree);
+            }
         }
     };
 }

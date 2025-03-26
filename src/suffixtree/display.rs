@@ -98,11 +98,14 @@ impl SuffixTree {
                             node == &c_node.id.to_string()
                         })
                         .unwrap();
-                    graph.add_edge(node_idx, suffix_link_idx, "*".to_string());
+                    graph.add_edge(node_idx, suffix_link_idx, "[SL]".to_string());
                 }
             }
         }
 
-        format!("{}", Dot::new(&graph))
+        let mut dot = format!("{}", Dot::new(&graph));
+        dot = dot.replace("[ label = \"[SL]\"", "[ color = \"red\" style = \"dashed\"");
+
+        dot
     }
 }
