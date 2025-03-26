@@ -28,6 +28,7 @@ opt-level = 0
 debug = true
 
 [profile.release]
+strip = "debuginfo"
 opt-level = 3
 codegen-units = 1
 lto = false

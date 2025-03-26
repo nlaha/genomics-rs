@@ -1,0 +1,965 @@
+   Compiling genomics_rs v0.1.0 (C:\Users\nlaha\Desktop\Code\genomics-rs)
+    Finished `release` profile [optimized + debuginfo] target(s) in 7.91s
+     Running `target\release\genomics_rs.exe --fasta-path ./test_data/s4.fasta suffix-tree --alphabet-file ./alphabets/dna.txt --stats --suffix-links`
+
+        GENOMICS-RS
+        -. .-.   .-. .-.   .-. .-.   .  
+        ||\|||\ /|||\|||\ /|||\|||\ /|
+        |/ \|||\|||/ \|||\|||/ \|||\||
+        ~   `-~ `-`   `-~ `-`   `-~ `-
+    
+ INFO  genomics_rs > Loading sequences from ./test_data/s4.fasta
+ INFO  genomics_rs::sequence > Sequence Found: s4
+ DEBUG genomics_rs::sequence > Loaded 1 sequences
+ DEBUG genomics_rs::sequence >   s4: 15 bases
+ INFO  genomics_rs           > MODE: Suffix Tree
+ INFO  genomics_rs           > Suffix links: true
+ DEBUG genomics_rs::suffixtree::tree > [FindPath] 0/15 ATTAAAGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > u_idx: 0
+ DEBUG genomics_rs::suffixtree::tree > CASE 1: u = 0
+ DEBUG genomics_rs::suffixtree::tree > CASE 1: v = 0
+ DEBUG genomics_rs::suffixtree::tree > Current node: 0
+ DEBUG genomics_rs::suffixtree::tree > Suffix sub-index: 0, suffix index: 0
+ DEBUG genomics_rs::suffixtree::tree > Edge label: 
+ DEBUG genomics_rs::suffixtree::tree > Done with edge of current node 0
+ DEBUG genomics_rs::suffixtree::tree > Checking for child with A, suffix index: 0
+ DEBUG genomics_rs::suffixtree::tree > No child node found, adding new leaf
+ DEBUG genomics_rs::suffixtree::tree > Creating leaf node with id: 1 and label: ATTAAAGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > 
+digraph {
+    0 [ label = "0" ]
+    1 [ label = "1" ]
+    0 -> 1 [ label = "ATTAAAGGTTTATAC$" ]
+    0 -> 0 [ color = "red" style = "dashed" ]
+}
+
+ DEBUG genomics_rs::suffixtree::tree > [FindPath] 1/15 TTAAAGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > u_idx: 0
+ DEBUG genomics_rs::suffixtree::tree > CASE 1: u = 0
+ DEBUG genomics_rs::suffixtree::tree > CASE 1: v = 0
+ DEBUG genomics_rs::suffixtree::tree > Current node: 0
+ DEBUG genomics_rs::suffixtree::tree > Suffix sub-index: 0, suffix index: 1
+ DEBUG genomics_rs::suffixtree::tree > Edge label: 
+ DEBUG genomics_rs::suffixtree::tree > Done with edge of current node 0
+ DEBUG genomics_rs::suffixtree::tree > Checking for child with T, suffix index: 0
+ DEBUG genomics_rs::suffixtree::tree > No child node found, adding new leaf
+ DEBUG genomics_rs::suffixtree::tree > Creating leaf node with id: 2 and label: TTAAAGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > 
+digraph {
+    0 [ label = "0" ]
+    1 [ label = "1" ]
+    2 [ label = "2" ]
+    0 -> 1 [ label = "ATTAAAGGTTTATAC$" ]
+    0 -> 2 [ label = "TTAAAGGTTTATAC$" ]
+    0 -> 0 [ color = "red" style = "dashed" ]
+}
+
+ DEBUG genomics_rs::suffixtree::tree > [FindPath] 2/15 TAAAGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > u_idx: 0
+ DEBUG genomics_rs::suffixtree::tree > CASE 1: u = 0
+ DEBUG genomics_rs::suffixtree::tree > CASE 1: v = 0
+ DEBUG genomics_rs::suffixtree::tree > Current node: 0
+ DEBUG genomics_rs::suffixtree::tree > Suffix sub-index: 0, suffix index: 2
+ DEBUG genomics_rs::suffixtree::tree > Edge label: 
+ DEBUG genomics_rs::suffixtree::tree > Done with edge of current node 0
+ DEBUG genomics_rs::suffixtree::tree > Checking for child with T, suffix index: 0
+ DEBUG genomics_rs::suffixtree::tree > Found next child node for T, child idx: 4
+ DEBUG genomics_rs::suffixtree::tree > Edge label: TTAAAGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > Comparing [0] T to T [1]
+ DEBUG genomics_rs::suffixtree::tree > Comparing [1] A to T [2]
+ DEBUG genomics_rs::suffixtree::tree > Breaking edge at index 2 into T and TAAAGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > Creating internal node with id: 17 and label: T
+ DEBUG genomics_rs::suffixtree::tree > Creating leaf node with id: 3 and label: AAAGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > 
+digraph {
+    0 [ label = "0" ]
+    1 [ label = "1" ]
+    2 [ label = "17" ]
+    3 [ label = "3" ]
+    4 [ label = "2" ]
+    0 -> 1 [ label = "ATTAAAGGTTTATAC$" ]
+    0 -> 2 [ label = "T" ]
+    2 -> 3 [ label = "AAAGGTTTATAC$" ]
+    2 -> 4 [ label = "TAAAGGTTTATAC$" ]
+    0 -> 0 [ color = "red" style = "dashed" ]
+}
+
+ DEBUG genomics_rs::suffixtree::tree > [FindPath] 3/15 AAAGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > u_idx: 17
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: u' = 0
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: v' = 0
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: B' = 1->2 (T)
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Hop from 0
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Can't hop from 0 anymore (beta length is 0)
+ DEBUG genomics_rs::suffixtree::tree > After NodeHops: v is 0
+ DEBUG genomics_rs::suffixtree::tree > Linking u 17 to root
+ DEBUG genomics_rs::suffixtree::tree > Current node: 0
+ DEBUG genomics_rs::suffixtree::tree > Suffix sub-index: 0, suffix index: 3
+ DEBUG genomics_rs::suffixtree::tree > Edge label: 
+ DEBUG genomics_rs::suffixtree::tree > Done with edge of current node 0
+ DEBUG genomics_rs::suffixtree::tree > Checking for child with A, suffix index: 0
+ DEBUG genomics_rs::suffixtree::tree > Found next child node for A, child idx: 1
+ DEBUG genomics_rs::suffixtree::tree > Edge label: ATTAAAGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > Comparing [0] A to A [0]
+ DEBUG genomics_rs::suffixtree::tree > Comparing [1] A to T [1]
+ DEBUG genomics_rs::suffixtree::tree > Breaking edge at index 1 into A and TTAAAGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > Creating internal node with id: 18 and label: A
+ DEBUG genomics_rs::suffixtree::tree > Creating leaf node with id: 4 and label: AAGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > 
+digraph {
+    0 [ label = "0" ]
+    1 [ label = "18" ]
+    2 [ label = "4" ]
+    3 [ label = "1" ]
+    4 [ label = "17" ]
+    5 [ label = "3" ]
+    6 [ label = "2" ]
+    0 -> 1 [ label = "A" ]
+    1 -> 2 [ label = "AAGGTTTATAC$" ]
+    1 -> 3 [ label = "TTAAAGGTTTATAC$" ]
+    0 -> 4 [ label = "T" ]
+    4 -> 5 [ label = "AAAGGTTTATAC$" ]
+    4 -> 6 [ label = "TAAAGGTTTATAC$" ]
+    0 -> 0 [ color = "red" style = "dashed" ]
+    4 -> 0 [ color = "red" style = "dashed" ]
+}
+
+ DEBUG genomics_rs::suffixtree::tree > [FindPath] 4/15 AAGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > u_idx: 18
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: u' = 0
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: v' = 0
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: B' = 0->1 (A)
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Hop from 0
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Can't hop from 0 anymore (beta length is 0)
+ DEBUG genomics_rs::suffixtree::tree > After NodeHops: v is 0
+ DEBUG genomics_rs::suffixtree::tree > Linking u 18 to root
+ DEBUG genomics_rs::suffixtree::tree > Current node: 0
+ DEBUG genomics_rs::suffixtree::tree > Suffix sub-index: 0, suffix index: 4
+ DEBUG genomics_rs::suffixtree::tree > Edge label: 
+ DEBUG genomics_rs::suffixtree::tree > Done with edge of current node 0
+ DEBUG genomics_rs::suffixtree::tree > Checking for child with A, suffix index: 0
+ DEBUG genomics_rs::suffixtree::tree > Found next child node for A, child idx: 1
+ DEBUG genomics_rs::suffixtree::tree > Edge label: A
+ DEBUG genomics_rs::suffixtree::tree > Comparing [0] A to A [0]
+ DEBUG genomics_rs::suffixtree::tree > Done with edge of current node 18
+ DEBUG genomics_rs::suffixtree::tree > Checking for child with A, suffix index: 1
+ DEBUG genomics_rs::suffixtree::tree > Found next child node for A, child idx: 1
+ DEBUG genomics_rs::suffixtree::tree > Edge label: AAGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > Comparing [1] A to A [4]
+ DEBUG genomics_rs::suffixtree::tree > Comparing [2] G to A [5]
+ DEBUG genomics_rs::suffixtree::tree > Breaking edge at index 5 into A and AGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > Creating internal node with id: 19 and label: A
+ DEBUG genomics_rs::suffixtree::tree > Creating leaf node with id: 5 and label: GGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > 
+digraph {
+    0 [ label = "0" ]
+    1 [ label = "18" ]
+    2 [ label = "19" ]
+    3 [ label = "4" ]
+    4 [ label = "5" ]
+    5 [ label = "1" ]
+    6 [ label = "17" ]
+    7 [ label = "3" ]
+    8 [ label = "2" ]
+    0 -> 1 [ label = "A" ]
+    1 -> 2 [ label = "A" ]
+    2 -> 3 [ label = "AGGTTTATAC$" ]
+    2 -> 4 [ label = "GGTTTATAC$" ]
+    1 -> 5 [ label = "TTAAAGGTTTATAC$" ]
+    0 -> 6 [ label = "T" ]
+    6 -> 7 [ label = "AAAGGTTTATAC$" ]
+    6 -> 8 [ label = "TAAAGGTTTATAC$" ]
+    0 -> 0 [ color = "red" style = "dashed" ]
+    6 -> 0 [ color = "red" style = "dashed" ]
+    1 -> 0 [ color = "red" style = "dashed" ]
+}
+
+ DEBUG genomics_rs::suffixtree::tree > [FindPath] 5/15 AGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > u_idx: 19
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: u' = 18
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: v' = 0
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: B' = 4->5 (A)
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Hop from 0
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Current node: 0
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Hopping to child node 18 (remaining beta: 0)
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Returning node 18
+ DEBUG genomics_rs::suffixtree::tree > After NodeHops: v is 18
+ DEBUG genomics_rs::suffixtree::tree > Linking u 19 to v 18
+ DEBUG genomics_rs::suffixtree::tree > Current node: 18
+ DEBUG genomics_rs::suffixtree::tree > Suffix sub-index: 0, suffix index: 5
+ DEBUG genomics_rs::suffixtree::tree > Edge label: A
+ DEBUG genomics_rs::suffixtree::tree > Comparing [0] A to A [0]
+ DEBUG genomics_rs::suffixtree::tree > Done with edge of current node 18
+ DEBUG genomics_rs::suffixtree::tree > Checking for child with G, suffix index: 1
+ DEBUG genomics_rs::suffixtree::tree > No child node found, adding new leaf
+ DEBUG genomics_rs::suffixtree::tree > Creating leaf node with id: 6 and label: GGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > 
+digraph {
+    0 [ label = "0" ]
+    1 [ label = "18" ]
+    2 [ label = "19" ]
+    3 [ label = "4" ]
+    4 [ label = "5" ]
+    5 [ label = "6" ]
+    6 [ label = "1" ]
+    7 [ label = "17" ]
+    8 [ label = "3" ]
+    9 [ label = "2" ]
+    0 -> 1 [ label = "A" ]
+    1 -> 2 [ label = "A" ]
+    2 -> 3 [ label = "AGGTTTATAC$" ]
+    2 -> 4 [ label = "GGTTTATAC$" ]
+    1 -> 5 [ label = "GGTTTATAC$" ]
+    1 -> 6 [ label = "TTAAAGGTTTATAC$" ]
+    0 -> 7 [ label = "T" ]
+    7 -> 8 [ label = "AAAGGTTTATAC$" ]
+    7 -> 9 [ label = "TAAAGGTTTATAC$" ]
+    0 -> 0 [ color = "red" style = "dashed" ]
+    7 -> 0 [ color = "red" style = "dashed" ]
+    1 -> 0 [ color = "red" style = "dashed" ]
+    2 -> 1 [ color = "red" style = "dashed" ]
+}
+
+ DEBUG genomics_rs::suffixtree::tree > [FindPath] 6/15 GGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > u_idx: 18
+ DEBUG genomics_rs::suffixtree::tree > CASE 1: u = 18
+ DEBUG genomics_rs::suffixtree::tree > CASE 1: v = 0
+ DEBUG genomics_rs::suffixtree::tree > Current node: 0
+ DEBUG genomics_rs::suffixtree::tree > Suffix sub-index: 0, suffix index: 6
+ DEBUG genomics_rs::suffixtree::tree > Edge label: 
+ DEBUG genomics_rs::suffixtree::tree > Done with edge of current node 0
+ DEBUG genomics_rs::suffixtree::tree > Checking for child with G, suffix index: 0
+ DEBUG genomics_rs::suffixtree::tree > No child node found, adding new leaf
+ DEBUG genomics_rs::suffixtree::tree > Creating leaf node with id: 7 and label: GGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > 
+digraph {
+    0 [ label = "0" ]
+    1 [ label = "18" ]
+    2 [ label = "19" ]
+    3 [ label = "4" ]
+    4 [ label = "5" ]
+    5 [ label = "6" ]
+    6 [ label = "1" ]
+    7 [ label = "7" ]
+    8 [ label = "17" ]
+    9 [ label = "3" ]
+    10 [ label = "2" ]
+    0 -> 1 [ label = "A" ]
+    1 -> 2 [ label = "A" ]
+    2 -> 3 [ label = "AGGTTTATAC$" ]
+    2 -> 4 [ label = "GGTTTATAC$" ]
+    1 -> 5 [ label = "GGTTTATAC$" ]
+    1 -> 6 [ label = "TTAAAGGTTTATAC$" ]
+    0 -> 7 [ label = "GGTTTATAC$" ]
+    0 -> 8 [ label = "T" ]
+    8 -> 9 [ label = "AAAGGTTTATAC$" ]
+    8 -> 10 [ label = "TAAAGGTTTATAC$" ]
+    0 -> 0 [ color = "red" style = "dashed" ]
+    8 -> 0 [ color = "red" style = "dashed" ]
+    1 -> 0 [ color = "red" style = "dashed" ]
+    2 -> 1 [ color = "red" style = "dashed" ]
+}
+
+ DEBUG genomics_rs::suffixtree::tree > [FindPath] 7/15 GTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > u_idx: 0
+ DEBUG genomics_rs::suffixtree::tree > CASE 1: u = 0
+ DEBUG genomics_rs::suffixtree::tree > CASE 1: v = 0
+ DEBUG genomics_rs::suffixtree::tree > Current node: 0
+ DEBUG genomics_rs::suffixtree::tree > Suffix sub-index: 0, suffix index: 7
+ DEBUG genomics_rs::suffixtree::tree > Edge label: 
+ DEBUG genomics_rs::suffixtree::tree > Done with edge of current node 0
+ DEBUG genomics_rs::suffixtree::tree > Checking for child with G, suffix index: 0
+ DEBUG genomics_rs::suffixtree::tree > Found next child node for G, child idx: 3
+ DEBUG genomics_rs::suffixtree::tree > Edge label: GGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > Comparing [0] G to G [6]
+ DEBUG genomics_rs::suffixtree::tree > Comparing [1] T to G [7]
+ DEBUG genomics_rs::suffixtree::tree > Breaking edge at index 7 into G and GTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > Creating internal node with id: 20 and label: G
+ DEBUG genomics_rs::suffixtree::tree > Creating leaf node with id: 8 and label: TTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > 
+digraph {
+    0 [ label = "0" ]
+    1 [ label = "18" ]
+    2 [ label = "19" ]
+    3 [ label = "4" ]
+    4 [ label = "5" ]
+    5 [ label = "6" ]
+    6 [ label = "1" ]
+    7 [ label = "20" ]
+    8 [ label = "7" ]
+    9 [ label = "8" ]
+    10 [ label = "17" ]
+    11 [ label = "3" ]
+    12 [ label = "2" ]
+    0 -> 1 [ label = "A" ]
+    1 -> 2 [ label = "A" ]
+    2 -> 3 [ label = "AGGTTTATAC$" ]
+    2 -> 4 [ label = "GGTTTATAC$" ]
+    1 -> 5 [ label = "GGTTTATAC$" ]
+    1 -> 6 [ label = "TTAAAGGTTTATAC$" ]
+    0 -> 7 [ label = "G" ]
+    7 -> 8 [ label = "GTTTATAC$" ]
+    7 -> 9 [ label = "TTTATAC$" ]
+    0 -> 10 [ label = "T" ]
+    10 -> 11 [ label = "AAAGGTTTATAC$" ]
+    10 -> 12 [ label = "TAAAGGTTTATAC$" ]
+    0 -> 0 [ color = "red" style = "dashed" ]
+    10 -> 0 [ color = "red" style = "dashed" ]
+    1 -> 0 [ color = "red" style = "dashed" ]
+    2 -> 1 [ color = "red" style = "dashed" ]
+}
+
+ DEBUG genomics_rs::suffixtree::tree > [FindPath] 8/15 TTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > u_idx: 20
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: u' = 0
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: v' = 0
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: B' = 6->7 (G)
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Hop from 0
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Can't hop from 0 anymore (beta length is 0)
+ DEBUG genomics_rs::suffixtree::tree > After NodeHops: v is 0
+ DEBUG genomics_rs::suffixtree::tree > Linking u 20 to root
+ DEBUG genomics_rs::suffixtree::tree > Current node: 0
+ DEBUG genomics_rs::suffixtree::tree > Suffix sub-index: 0, suffix index: 8
+ DEBUG genomics_rs::suffixtree::tree > Edge label: 
+ DEBUG genomics_rs::suffixtree::tree > Done with edge of current node 0
+ DEBUG genomics_rs::suffixtree::tree > Checking for child with T, suffix index: 0
+ DEBUG genomics_rs::suffixtree::tree > Found next child node for T, child idx: 4
+ DEBUG genomics_rs::suffixtree::tree > Edge label: T
+ DEBUG genomics_rs::suffixtree::tree > Comparing [0] T to T [1]
+ DEBUG genomics_rs::suffixtree::tree > Done with edge of current node 17
+ DEBUG genomics_rs::suffixtree::tree > Checking for child with T, suffix index: 1
+ DEBUG genomics_rs::suffixtree::tree > Found next child node for T, child idx: 4
+ DEBUG genomics_rs::suffixtree::tree > Edge label: TAAAGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > Comparing [1] T to T [2]
+ DEBUG genomics_rs::suffixtree::tree > Comparing [2] T to A [3]
+ DEBUG genomics_rs::suffixtree::tree > Breaking edge at index 3 into T and AAAGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > Creating internal node with id: 21 and label: T
+ DEBUG genomics_rs::suffixtree::tree > Creating leaf node with id: 9 and label: TATAC$
+ DEBUG genomics_rs::suffixtree::tree > 
+digraph {
+    0 [ label = "0" ]
+    1 [ label = "18" ]
+    2 [ label = "19" ]
+    3 [ label = "4" ]
+    4 [ label = "5" ]
+    5 [ label = "6" ]
+    6 [ label = "1" ]
+    7 [ label = "20" ]
+    8 [ label = "7" ]
+    9 [ label = "8" ]
+    10 [ label = "17" ]
+    11 [ label = "3" ]
+    12 [ label = "21" ]
+    13 [ label = "2" ]
+    14 [ label = "9" ]
+    0 -> 1 [ label = "A" ]
+    1 -> 2 [ label = "A" ]
+    2 -> 3 [ label = "AGGTTTATAC$" ]
+    2 -> 4 [ label = "GGTTTATAC$" ]
+    1 -> 5 [ label = "GGTTTATAC$" ]
+    1 -> 6 [ label = "TTAAAGGTTTATAC$" ]
+    0 -> 7 [ label = "G" ]
+    7 -> 8 [ label = "GTTTATAC$" ]
+    7 -> 9 [ label = "TTTATAC$" ]
+    0 -> 10 [ label = "T" ]
+    10 -> 11 [ label = "AAAGGTTTATAC$" ]
+    10 -> 12 [ label = "T" ]
+    12 -> 13 [ label = "AAAGGTTTATAC$" ]
+    12 -> 14 [ label = "TATAC$" ]
+    0 -> 0 [ color = "red" style = "dashed" ]
+    10 -> 0 [ color = "red" style = "dashed" ]
+    1 -> 0 [ color = "red" style = "dashed" ]
+    2 -> 1 [ color = "red" style = "dashed" ]
+    7 -> 0 [ color = "red" style = "dashed" ]
+}
+
+ DEBUG genomics_rs::suffixtree::tree > [FindPath] 9/15 TTATAC$
+ DEBUG genomics_rs::suffixtree::tree > u_idx: 21
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: u' = 17
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: v' = 0
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: B' = 2->3 (T)
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Hop from 0
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Current node: 0
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Hopping to child node 17 (remaining beta: 0)
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Returning node 17
+ DEBUG genomics_rs::suffixtree::tree > After NodeHops: v is 17
+ DEBUG genomics_rs::suffixtree::tree > Linking u 21 to v 17
+ DEBUG genomics_rs::suffixtree::tree > Current node: 17
+ DEBUG genomics_rs::suffixtree::tree > Suffix sub-index: 0, suffix index: 9
+ DEBUG genomics_rs::suffixtree::tree > Edge label: T
+ DEBUG genomics_rs::suffixtree::tree > Comparing [0] T to T [1]
+ DEBUG genomics_rs::suffixtree::tree > Done with edge of current node 17
+ DEBUG genomics_rs::suffixtree::tree > Checking for child with T, suffix index: 1
+ DEBUG genomics_rs::suffixtree::tree > Found next child node for T, child idx: 4
+ DEBUG genomics_rs::suffixtree::tree > Edge label: T
+ DEBUG genomics_rs::suffixtree::tree > Comparing [1] T to T [2]
+ DEBUG genomics_rs::suffixtree::tree > Done with edge of current node 21
+ DEBUG genomics_rs::suffixtree::tree > Checking for child with A, suffix index: 2
+ DEBUG genomics_rs::suffixtree::tree > Found next child node for A, child idx: 1
+ DEBUG genomics_rs::suffixtree::tree > Edge label: AAAGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > Comparing [2] A to A [3]
+ DEBUG genomics_rs::suffixtree::tree > Comparing [3] T to A [4]
+ DEBUG genomics_rs::suffixtree::tree > Breaking edge at index 4 into A and AAGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > Creating internal node with id: 22 and label: A
+ DEBUG genomics_rs::suffixtree::tree > Creating leaf node with id: 10 and label: TAC$
+ DEBUG genomics_rs::suffixtree::tree > 
+digraph {
+    0 [ label = "0" ]
+    1 [ label = "18" ]
+    2 [ label = "19" ]
+    3 [ label = "4" ]
+    4 [ label = "5" ]
+    5 [ label = "6" ]
+    6 [ label = "1" ]
+    7 [ label = "20" ]
+    8 [ label = "7" ]
+    9 [ label = "8" ]
+    10 [ label = "17" ]
+    11 [ label = "3" ]
+    12 [ label = "21" ]
+    13 [ label = "22" ]
+    14 [ label = "2" ]
+    15 [ label = "10" ]
+    16 [ label = "9" ]
+    0 -> 1 [ label = "A" ]
+    1 -> 2 [ label = "A" ]
+    2 -> 3 [ label = "AGGTTTATAC$" ]
+    2 -> 4 [ label = "GGTTTATAC$" ]
+    1 -> 5 [ label = "GGTTTATAC$" ]
+    1 -> 6 [ label = "TTAAAGGTTTATAC$" ]
+    0 -> 7 [ label = "G" ]
+    7 -> 8 [ label = "GTTTATAC$" ]
+    7 -> 9 [ label = "TTTATAC$" ]
+    0 -> 10 [ label = "T" ]
+    10 -> 11 [ label = "AAAGGTTTATAC$" ]
+    10 -> 12 [ label = "T" ]
+    12 -> 13 [ label = "A" ]
+    13 -> 14 [ label = "AAGGTTTATAC$" ]
+    13 -> 15 [ label = "TAC$" ]
+    12 -> 16 [ label = "TATAC$" ]
+    0 -> 0 [ color = "red" style = "dashed" ]
+    10 -> 0 [ color = "red" style = "dashed" ]
+    1 -> 0 [ color = "red" style = "dashed" ]
+    2 -> 1 [ color = "red" style = "dashed" ]
+    7 -> 0 [ color = "red" style = "dashed" ]
+    12 -> 10 [ color = "red" style = "dashed" ]
+}
+
+ DEBUG genomics_rs::suffixtree::tree > [FindPath] 10/15 TATAC$
+ DEBUG genomics_rs::suffixtree::tree > u_idx: 22
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: u' = 21
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: v' = 17
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: B' = 3->4 (A)
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Hop from 17
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Current node: 17
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Found child node with partial match 3
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Found match at 0: A == A
+ DEBUG genomics_rs::suffixtree::tree > Breaking edge at index 4 into A and AAGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > Creating internal node with id: 23 and label: A
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Returning node 23
+ DEBUG genomics_rs::suffixtree::tree > After NodeHops: v is 23
+ DEBUG genomics_rs::suffixtree::tree > Linking u 22 to v 23
+ DEBUG genomics_rs::suffixtree::tree > Current node: 23
+ DEBUG genomics_rs::suffixtree::tree > Suffix sub-index: 1, suffix index: 10
+ DEBUG genomics_rs::suffixtree::tree > Edge label: A
+ DEBUG genomics_rs::suffixtree::tree > Comparing [1] A to A [3]
+ DEBUG genomics_rs::suffixtree::tree > Done with edge of current node 23
+ DEBUG genomics_rs::suffixtree::tree > Checking for child with T, suffix index: 2
+ DEBUG genomics_rs::suffixtree::tree > No child node found, adding new leaf
+ DEBUG genomics_rs::suffixtree::tree > Creating leaf node with id: 11 and label: TAC$
+ DEBUG genomics_rs::suffixtree::tree > 
+digraph {
+    0 [ label = "0" ]
+    1 [ label = "18" ]
+    2 [ label = "19" ]
+    3 [ label = "4" ]
+    4 [ label = "5" ]
+    5 [ label = "6" ]
+    6 [ label = "1" ]
+    7 [ label = "20" ]
+    8 [ label = "7" ]
+    9 [ label = "8" ]
+    10 [ label = "17" ]
+    11 [ label = "23" ]
+    12 [ label = "3" ]
+    13 [ label = "11" ]
+    14 [ label = "21" ]
+    15 [ label = "22" ]
+    16 [ label = "2" ]
+    17 [ label = "10" ]
+    18 [ label = "9" ]
+    0 -> 1 [ label = "A" ]
+    1 -> 2 [ label = "A" ]
+    2 -> 3 [ label = "AGGTTTATAC$" ]
+    2 -> 4 [ label = "GGTTTATAC$" ]
+    1 -> 5 [ label = "GGTTTATAC$" ]
+    1 -> 6 [ label = "TTAAAGGTTTATAC$" ]
+    0 -> 7 [ label = "G" ]
+    7 -> 8 [ label = "GTTTATAC$" ]
+    7 -> 9 [ label = "TTTATAC$" ]
+    0 -> 10 [ label = "T" ]
+    10 -> 11 [ label = "A" ]
+    11 -> 12 [ label = "AAGGTTTATAC$" ]
+    11 -> 13 [ label = "TAC$" ]
+    10 -> 14 [ label = "T" ]
+    14 -> 15 [ label = "A" ]
+    15 -> 16 [ label = "AAGGTTTATAC$" ]
+    15 -> 17 [ label = "TAC$" ]
+    14 -> 18 [ label = "TATAC$" ]
+    0 -> 0 [ color = "red" style = "dashed" ]
+    10 -> 0 [ color = "red" style = "dashed" ]
+    1 -> 0 [ color = "red" style = "dashed" ]
+    2 -> 1 [ color = "red" style = "dashed" ]
+    7 -> 0 [ color = "red" style = "dashed" ]
+    14 -> 10 [ color = "red" style = "dashed" ]
+    15 -> 11 [ color = "red" style = "dashed" ]
+}
+
+ DEBUG genomics_rs::suffixtree::tree > [FindPath] 11/15 ATAC$
+ DEBUG genomics_rs::suffixtree::tree > u_idx: 23
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: u' = 17
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: v' = 0
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: B' = 3->4 (A)
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Hop from 0
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Current node: 0
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Hopping to child node 18 (remaining beta: 0)
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Returning node 18
+ DEBUG genomics_rs::suffixtree::tree > After NodeHops: v is 18
+ DEBUG genomics_rs::suffixtree::tree > Linking u 23 to v 18
+ DEBUG genomics_rs::suffixtree::tree > Current node: 18
+ DEBUG genomics_rs::suffixtree::tree > Suffix sub-index: 0, suffix index: 11
+ DEBUG genomics_rs::suffixtree::tree > Edge label: A
+ DEBUG genomics_rs::suffixtree::tree > Comparing [0] A to A [0]
+ DEBUG genomics_rs::suffixtree::tree > Done with edge of current node 18
+ DEBUG genomics_rs::suffixtree::tree > Checking for child with T, suffix index: 1
+ DEBUG genomics_rs::suffixtree::tree > Found next child node for T, child idx: 4
+ DEBUG genomics_rs::suffixtree::tree > Edge label: TTAAAGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > Comparing [1] T to T [1]
+ DEBUG genomics_rs::suffixtree::tree > Comparing [2] A to T [2]
+ DEBUG genomics_rs::suffixtree::tree > Breaking edge at index 2 into T and TAAAGGTTTATAC$
+ DEBUG genomics_rs::suffixtree::tree > Creating internal node with id: 24 and label: T
+ DEBUG genomics_rs::suffixtree::tree > Creating leaf node with id: 12 and label: AC$
+ DEBUG genomics_rs::suffixtree::tree > 
+digraph {
+    0 [ label = "0" ]
+    1 [ label = "18" ]
+    2 [ label = "19" ]
+    3 [ label = "4" ]
+    4 [ label = "5" ]
+    5 [ label = "6" ]
+    6 [ label = "24" ]
+    7 [ label = "12" ]
+    8 [ label = "1" ]
+    9 [ label = "20" ]
+    10 [ label = "7" ]
+    11 [ label = "8" ]
+    12 [ label = "17" ]
+    13 [ label = "23" ]
+    14 [ label = "3" ]
+    15 [ label = "11" ]
+    16 [ label = "21" ]
+    17 [ label = "22" ]
+    18 [ label = "2" ]
+    19 [ label = "10" ]
+    20 [ label = "9" ]
+    0 -> 1 [ label = "A" ]
+    1 -> 2 [ label = "A" ]
+    2 -> 3 [ label = "AGGTTTATAC$" ]
+    2 -> 4 [ label = "GGTTTATAC$" ]
+    1 -> 5 [ label = "GGTTTATAC$" ]
+    1 -> 6 [ label = "T" ]
+    6 -> 7 [ label = "AC$" ]
+    6 -> 8 [ label = "TAAAGGTTTATAC$" ]
+    0 -> 9 [ label = "G" ]
+    9 -> 10 [ label = "GTTTATAC$" ]
+    9 -> 11 [ label = "TTTATAC$" ]
+    0 -> 12 [ label = "T" ]
+    12 -> 13 [ label = "A" ]
+    13 -> 14 [ label = "AAGGTTTATAC$" ]
+    13 -> 15 [ label = "TAC$" ]
+    12 -> 16 [ label = "T" ]
+    16 -> 17 [ label = "A" ]
+    17 -> 18 [ label = "AAGGTTTATAC$" ]
+    17 -> 19 [ label = "TAC$" ]
+    16 -> 20 [ label = "TATAC$" ]
+    0 -> 0 [ color = "red" style = "dashed" ]
+    12 -> 0 [ color = "red" style = "dashed" ]
+    1 -> 0 [ color = "red" style = "dashed" ]
+    2 -> 1 [ color = "red" style = "dashed" ]
+    9 -> 0 [ color = "red" style = "dashed" ]
+    16 -> 12 [ color = "red" style = "dashed" ]
+    17 -> 13 [ color = "red" style = "dashed" ]
+    13 -> 1 [ color = "red" style = "dashed" ]
+}
+
+ DEBUG genomics_rs::suffixtree::tree > [FindPath] 12/15 TAC$
+ DEBUG genomics_rs::suffixtree::tree > u_idx: 24
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: u' = 18
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: v' = 0
+ DEBUG genomics_rs::suffixtree::tree > CASE 2: B' = 1->2 (T)
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Hop from 0
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Current node: 0
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Hopping to child node 17 (remaining beta: 0)
+ DEBUG genomics_rs::suffixtree::tree > [NodeHops] Returning node 17
+ DEBUG genomics_rs::suffixtree::tree > After NodeHops: v is 17
+ DEBUG genomics_rs::suffixtree::tree > Linking u 24 to v 17
+ DEBUG genomics_rs::suffixtree::tree > Current node: 17
+ DEBUG genomics_rs::suffixtree::tree > Suffix sub-index: 0, suffix index: 12
+ DEBUG genomics_rs::suffixtree::tree > Edge label: T
+ DEBUG genomics_rs::suffixtree::tree > Comparing [0] T to T [1]
+ DEBUG genomics_rs::suffixtree::tree > Done with edge of current node 17
+ DEBUG genomics_rs::suffixtree::tree > Checking for child with A, suffix index: 1
+ DEBUG genomics_rs::suffixtree::tree > Found next child node for A, child idx: 1
+ DEBUG genomics_rs::suffixtree::tree > Edge label: A
+ DEBUG genomics_rs::suffixtree::tree > Comparing [1] A to A [3]
+ DEBUG genomics_rs::suffixtree::tree > Done with edge of current node 23
+ DEBUG genomics_rs::suffixtree::tree > Checking for child with C, suffix index: 2
+ DEBUG genomics_rs::suffixtree::tree > No child node found, adding new leaf
+ DEBUG genomics_rs::suffixtree::tree > Creating leaf node with id: 13 and label: C$
+ DEBUG genomics_rs::suffixtree::tree > 
+digraph {
+    0 [ label = "0" ]
+    1 [ label = "18" ]
+    2 [ label = "19" ]
+    3 [ label = "4" ]
+    4 [ label = "5" ]
+    5 [ label = "6" ]
+    6 [ label = "24" ]
+    7 [ label = "12" ]
+    8 [ label = "1" ]
+    9 [ label = "20" ]
+    10 [ label = "7" ]
+    11 [ label = "8" ]
+    12 [ label = "17" ]
+    13 [ label = "23" ]
+    14 [ label = "3" ]
+    15 [ label = "13" ]
+    16 [ label = "11" ]
+    17 [ label = "21" ]
+    18 [ label = "22" ]
+    19 [ label = "2" ]
+    20 [ label = "10" ]
+    21 [ label = "9" ]
+    0 -> 1 [ label = "A" ]
+    1 -> 2 [ label = "A" ]
+    2 -> 3 [ label = "AGGTTTATAC$" ]
+    2 -> 4 [ label = "GGTTTATAC$" ]
+    1 -> 5 [ label = "GGTTTATAC$" ]
+    1 -> 6 [ label = "T" ]
+    6 -> 7 [ label = "AC$" ]
+    6 -> 8 [ label = "TAAAGGTTTATAC$" ]
+    0 -> 9 [ label = "G" ]
+    9 -> 10 [ label = "GTTTATAC$" ]
+    9 -> 11 [ label = "TTTATAC$" ]
+    0 -> 12 [ label = "T" ]
+    12 -> 13 [ label = "A" ]
+    13 -> 14 [ label = "AAGGTTTATAC$" ]
+    13 -> 15 [ label = "C$" ]
+    13 -> 16 [ label = "TAC$" ]
+    12 -> 17 [ label = "T" ]
+    17 -> 18 [ label = "A" ]
+    18 -> 19 [ label = "AAGGTTTATAC$" ]
+    18 -> 20 [ label = "TAC$" ]
+    17 -> 21 [ label = "TATAC$" ]
+    0 -> 0 [ color = "red" style = "dashed" ]
+    12 -> 0 [ color = "red" style = "dashed" ]
+    1 -> 0 [ color = "red" style = "dashed" ]
+    2 -> 1 [ color = "red" style = "dashed" ]
+    9 -> 0 [ color = "red" style = "dashed" ]
+    17 -> 12 [ color = "red" style = "dashed" ]
+    18 -> 13 [ color = "red" style = "dashed" ]
+    13 -> 1 [ color = "red" style = "dashed" ]
+    6 -> 12 [ color = "red" style = "dashed" ]
+}
+
+ DEBUG genomics_rs::suffixtree::tree > [FindPath] 13/15 AC$
+ DEBUG genomics_rs::suffixtree::tree > u_idx: 23
+ DEBUG genomics_rs::suffixtree::tree > CASE 1: u = 23
+ DEBUG genomics_rs::suffixtree::tree > CASE 1: v = 18
+ DEBUG genomics_rs::suffixtree::tree > Current node: 18
+ DEBUG genomics_rs::suffixtree::tree > Suffix sub-index: 0, suffix index: 13
+ DEBUG genomics_rs::suffixtree::tree > Edge label: A
+ DEBUG genomics_rs::suffixtree::tree > Comparing [0] A to A [0]
+ DEBUG genomics_rs::suffixtree::tree > Done with edge of current node 18
+ DEBUG genomics_rs::suffixtree::tree > Checking for child with C, suffix index: 1
+ DEBUG genomics_rs::suffixtree::tree > No child node found, adding new leaf
+ DEBUG genomics_rs::suffixtree::tree > Creating leaf node with id: 14 and label: C$
+ DEBUG genomics_rs::suffixtree::tree > 
+digraph {
+    0 [ label = "0" ]
+    1 [ label = "18" ]
+    2 [ label = "19" ]
+    3 [ label = "4" ]
+    4 [ label = "5" ]
+    5 [ label = "14" ]
+    6 [ label = "6" ]
+    7 [ label = "24" ]
+    8 [ label = "12" ]
+    9 [ label = "1" ]
+    10 [ label = "20" ]
+    11 [ label = "7" ]
+    12 [ label = "8" ]
+    13 [ label = "17" ]
+    14 [ label = "23" ]
+    15 [ label = "3" ]
+    16 [ label = "13" ]
+    17 [ label = "11" ]
+    18 [ label = "21" ]
+    19 [ label = "22" ]
+    20 [ label = "2" ]
+    21 [ label = "10" ]
+    22 [ label = "9" ]
+    0 -> 1 [ label = "A" ]
+    1 -> 2 [ label = "A" ]
+    2 -> 3 [ label = "AGGTTTATAC$" ]
+    2 -> 4 [ label = "GGTTTATAC$" ]
+    1 -> 5 [ label = "C$" ]
+    1 -> 6 [ label = "GGTTTATAC$" ]
+    1 -> 7 [ label = "T" ]
+    7 -> 8 [ label = "AC$" ]
+    7 -> 9 [ label = "TAAAGGTTTATAC$" ]
+    0 -> 10 [ label = "G" ]
+    10 -> 11 [ label = "GTTTATAC$" ]
+    10 -> 12 [ label = "TTTATAC$" ]
+    0 -> 13 [ label = "T" ]
+    13 -> 14 [ label = "A" ]
+    14 -> 15 [ label = "AAGGTTTATAC$" ]
+    14 -> 16 [ label = "C$" ]
+    14 -> 17 [ label = "TAC$" ]
+    13 -> 18 [ label = "T" ]
+    18 -> 19 [ label = "A" ]
+    19 -> 20 [ label = "AAGGTTTATAC$" ]
+    19 -> 21 [ label = "TAC$" ]
+    18 -> 22 [ label = "TATAC$" ]
+    0 -> 0 [ color = "red" style = "dashed" ]
+    13 -> 0 [ color = "red" style = "dashed" ]
+    1 -> 0 [ color = "red" style = "dashed" ]
+    2 -> 1 [ color = "red" style = "dashed" ]
+    10 -> 0 [ color = "red" style = "dashed" ]
+    18 -> 13 [ color = "red" style = "dashed" ]
+    19 -> 14 [ color = "red" style = "dashed" ]
+    14 -> 1 [ color = "red" style = "dashed" ]
+    7 -> 13 [ color = "red" style = "dashed" ]
+}
+
+ DEBUG genomics_rs::suffixtree::tree > [FindPath] 14/15 C$
+ DEBUG genomics_rs::suffixtree::tree > u_idx: 18
+ DEBUG genomics_rs::suffixtree::tree > CASE 1: u = 18
+ DEBUG genomics_rs::suffixtree::tree > CASE 1: v = 0
+ DEBUG genomics_rs::suffixtree::tree > Current node: 0
+ DEBUG genomics_rs::suffixtree::tree > Suffix sub-index: 0, suffix index: 14
+ DEBUG genomics_rs::suffixtree::tree > Edge label: 
+ DEBUG genomics_rs::suffixtree::tree > Done with edge of current node 0
+ DEBUG genomics_rs::suffixtree::tree > Checking for child with C, suffix index: 0
+ DEBUG genomics_rs::suffixtree::tree > No child node found, adding new leaf
+ DEBUG genomics_rs::suffixtree::tree > Creating leaf node with id: 15 and label: C$
+ DEBUG genomics_rs::suffixtree::tree > 
+digraph {
+    0 [ label = "0" ]
+    1 [ label = "18" ]
+    2 [ label = "19" ]
+    3 [ label = "4" ]
+    4 [ label = "5" ]
+    5 [ label = "14" ]
+    6 [ label = "6" ]
+    7 [ label = "24" ]
+    8 [ label = "12" ]
+    9 [ label = "1" ]
+    10 [ label = "15" ]
+    11 [ label = "20" ]
+    12 [ label = "7" ]
+    13 [ label = "8" ]
+    14 [ label = "17" ]
+    15 [ label = "23" ]
+    16 [ label = "3" ]
+    17 [ label = "13" ]
+    18 [ label = "11" ]
+    19 [ label = "21" ]
+    20 [ label = "22" ]
+    21 [ label = "2" ]
+    22 [ label = "10" ]
+    23 [ label = "9" ]
+    0 -> 1 [ label = "A" ]
+    1 -> 2 [ label = "A" ]
+    2 -> 3 [ label = "AGGTTTATAC$" ]
+    2 -> 4 [ label = "GGTTTATAC$" ]
+    1 -> 5 [ label = "C$" ]
+    1 -> 6 [ label = "GGTTTATAC$" ]
+    1 -> 7 [ label = "T" ]
+    7 -> 8 [ label = "AC$" ]
+    7 -> 9 [ label = "TAAAGGTTTATAC$" ]
+    0 -> 10 [ label = "C$" ]
+    0 -> 11 [ label = "G" ]
+    11 -> 12 [ label = "GTTTATAC$" ]
+    11 -> 13 [ label = "TTTATAC$" ]
+    0 -> 14 [ label = "T" ]
+    14 -> 15 [ label = "A" ]
+    15 -> 16 [ label = "AAGGTTTATAC$" ]
+    15 -> 17 [ label = "C$" ]
+    15 -> 18 [ label = "TAC$" ]
+    14 -> 19 [ label = "T" ]
+    19 -> 20 [ label = "A" ]
+    20 -> 21 [ label = "AAGGTTTATAC$" ]
+    20 -> 22 [ label = "TAC$" ]
+    19 -> 23 [ label = "TATAC$" ]
+    0 -> 0 [ color = "red" style = "dashed" ]
+    14 -> 0 [ color = "red" style = "dashed" ]
+    1 -> 0 [ color = "red" style = "dashed" ]
+    2 -> 1 [ color = "red" style = "dashed" ]
+    11 -> 0 [ color = "red" style = "dashed" ]
+    19 -> 14 [ color = "red" style = "dashed" ]
+    20 -> 15 [ color = "red" style = "dashed" ]
+    15 -> 1 [ color = "red" style = "dashed" ]
+    7 -> 14 [ color = "red" style = "dashed" ]
+}
+
+ DEBUG genomics_rs::suffixtree::tree > [FindPath] 15/15 $
+ DEBUG genomics_rs::suffixtree::tree > u_idx: 0
+ DEBUG genomics_rs::suffixtree::tree > CASE 1: u = 0
+ DEBUG genomics_rs::suffixtree::tree > CASE 1: v = 0
+ DEBUG genomics_rs::suffixtree::tree > Current node: 0
+ DEBUG genomics_rs::suffixtree::tree > Suffix sub-index: 0, suffix index: 15
+ DEBUG genomics_rs::suffixtree::tree > Edge label: 
+ DEBUG genomics_rs::suffixtree::tree > Done with edge of current node 0
+ DEBUG genomics_rs::suffixtree::tree > Checking for child with $, suffix index: 0
+ DEBUG genomics_rs::suffixtree::tree > No child node found, adding new leaf
+ DEBUG genomics_rs::suffixtree::tree > Creating leaf node with id: 16 and label: $
+ DEBUG genomics_rs::suffixtree::tree > 
+digraph {
+    0 [ label = "0" ]
+    1 [ label = "16" ]
+    2 [ label = "18" ]
+    3 [ label = "19" ]
+    4 [ label = "4" ]
+    5 [ label = "5" ]
+    6 [ label = "14" ]
+    7 [ label = "6" ]
+    8 [ label = "24" ]
+    9 [ label = "12" ]
+    10 [ label = "1" ]
+    11 [ label = "15" ]
+    12 [ label = "20" ]
+    13 [ label = "7" ]
+    14 [ label = "8" ]
+    15 [ label = "17" ]
+    16 [ label = "23" ]
+    17 [ label = "3" ]
+    18 [ label = "13" ]
+    19 [ label = "11" ]
+    20 [ label = "21" ]
+    21 [ label = "22" ]
+    22 [ label = "2" ]
+    23 [ label = "10" ]
+    24 [ label = "9" ]
+    0 -> 1 [ label = "$" ]
+    0 -> 2 [ label = "A" ]
+    2 -> 3 [ label = "A" ]
+    3 -> 4 [ label = "AGGTTTATAC$" ]
+    3 -> 5 [ label = "GGTTTATAC$" ]
+    2 -> 6 [ label = "C$" ]
+    2 -> 7 [ label = "GGTTTATAC$" ]
+    2 -> 8 [ label = "T" ]
+    8 -> 9 [ label = "AC$" ]
+    8 -> 10 [ label = "TAAAGGTTTATAC$" ]
+    0 -> 11 [ label = "C$" ]
+    0 -> 12 [ label = "G" ]
+    12 -> 13 [ label = "GTTTATAC$" ]
+    12 -> 14 [ label = "TTTATAC$" ]
+    0 -> 15 [ label = "T" ]
+    15 -> 16 [ label = "A" ]
+    16 -> 17 [ label = "AAGGTTTATAC$" ]
+    16 -> 18 [ label = "C$" ]
+    16 -> 19 [ label = "TAC$" ]
+    15 -> 20 [ label = "T" ]
+    20 -> 21 [ label = "A" ]
+    21 -> 22 [ label = "AAGGTTTATAC$" ]
+    21 -> 23 [ label = "TAC$" ]
+    20 -> 24 [ label = "TATAC$" ]
+    0 -> 0 [ color = "red" style = "dashed" ]
+    15 -> 0 [ color = "red" style = "dashed" ]
+    2 -> 0 [ color = "red" style = "dashed" ]
+    3 -> 2 [ color = "red" style = "dashed" ]
+    12 -> 0 [ color = "red" style = "dashed" ]
+    20 -> 15 [ color = "red" style = "dashed" ]
+    21 -> 16 [ color = "red" style = "dashed" ]
+    16 -> 2 [ color = "red" style = "dashed" ]
+    8 -> 15 [ color = "red" style = "dashed" ]
+}
+
+ INFO  genomics_rs::suffixtree::tree > [FindPath] Time taken to build suffix tree: 1385 us (1 ms)
+ INFO  genomics_rs                   > Graphviz:
+ digraph {
+    0 [ label = "0" ]
+    1 [ label = "16" ]
+    2 [ label = "18" ]
+    3 [ label = "19" ]
+    4 [ label = "4" ]
+    5 [ label = "5" ]
+    6 [ label = "14" ]
+    7 [ label = "6" ]
+    8 [ label = "24" ]
+    9 [ label = "12" ]
+    10 [ label = "1" ]
+    11 [ label = "15" ]
+    12 [ label = "20" ]
+    13 [ label = "7" ]
+    14 [ label = "8" ]
+    15 [ label = "17" ]
+    16 [ label = "23" ]
+    17 [ label = "3" ]
+    18 [ label = "13" ]
+    19 [ label = "11" ]
+    20 [ label = "21" ]
+    21 [ label = "22" ]
+    22 [ label = "2" ]
+    23 [ label = "10" ]
+    24 [ label = "9" ]
+    0 -> 1 [ label = "$" ]
+    0 -> 2 [ label = "A" ]
+    2 -> 3 [ label = "A" ]
+    3 -> 4 [ label = "AGGTTTATAC$" ]
+    3 -> 5 [ label = "GGTTTATAC$" ]
+    2 -> 6 [ label = "C$" ]
+    2 -> 7 [ label = "GGTTTATAC$" ]
+    2 -> 8 [ label = "T" ]
+    8 -> 9 [ label = "AC$" ]
+    8 -> 10 [ label = "TAAAGGTTTATAC$" ]
+    0 -> 11 [ label = "C$" ]
+    0 -> 12 [ label = "G" ]
+    12 -> 13 [ label = "GTTTATAC$" ]
+    12 -> 14 [ label = "TTTATAC$" ]
+    0 -> 15 [ label = "T" ]
+    15 -> 16 [ label = "A" ]
+    16 -> 17 [ label = "AAGGTTTATAC$" ]
+    16 -> 18 [ label = "C$" ]
+    16 -> 19 [ label = "TAC$" ]
+    15 -> 20 [ label = "T" ]
+    20 -> 21 [ label = "A" ]
+    21 -> 22 [ label = "AAGGTTTATAC$" ]
+    21 -> 23 [ label = "TAC$" ]
+    20 -> 24 [ label = "TATAC$" ]
+    0 -> 0 [ color = "red" style = "dashed" ]
+    15 -> 0 [ color = "red" style = "dashed" ]
+    2 -> 0 [ color = "red" style = "dashed" ]
+    3 -> 2 [ color = "red" style = "dashed" ]
+    12 -> 0 [ color = "red" style = "dashed" ]
+    20 -> 15 [ color = "red" style = "dashed" ]
+    21 -> 16 [ color = "red" style = "dashed" ]
+    16 -> 2 [ color = "red" style = "dashed" ]
+    8 -> 15 [ color = "red" style = "dashed" ]
+}
+
+String Depth: depth (node ID)
+0 (n0), 1 (n16), 1 (n18), 2 (n19), 13 (n4), 12 (n5), 3 (n14), 11 (n6), 2 (n24), 5 (n12), 16 (n1), 2 (n15), 1 (n20), 10 (n7), 9 (n8), 1 (n17), 2 (n23), 14 (n3), 4 (n13), 6 (n11), 2 (n21), 3 (n22), 15 (n2), 7 (n10), 8 (n9), 
+
+
+Stats: 
+            BWT: CTATAT$AAGTATATG
+            BWT Length: 16
+            Internal nodes: 8
+            Leaves: 16
+            Nodes: 25
+            Average string depth: 1.75
+            Max string depth: 3
+            
+

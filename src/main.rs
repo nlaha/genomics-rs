@@ -24,7 +24,7 @@ enum Command {
         #[arg(short, long)]
         alphabet_file: String,
 
-        #[arg(short, long, default_value_t = false)]
+        #[arg(short, long, default_value_t = true)]
         suffix_links: bool,
 
         #[arg(short, long, default_value_t = true)]

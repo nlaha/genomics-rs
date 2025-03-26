@@ -1,7 +1,7 @@
+use std::panic;
 use std::time::Instant;
-use std::{panic, thread::current};
 
-use log::{debug, info};
+use log::{debug, error, info};
 
 /**
  * Represents a node in the suffix tree
@@ -10,11 +10,11 @@ use log::{debug, info};
 pub struct TreeNode {
     pub id: usize,
     pub string_depth: usize,
-    pub parent: Option<usize>,
-    pub children: Vec<Option<usize>>,
     pub edge_start: usize,
     pub edge_end: usize,
+    pub parent: Option<usize>,
     pub suffix_link: Option<usize>,
+    pub children: Vec<Option<usize>>,
 }
 
 pub struct TreeStats {
@@ -146,6 +146,8 @@ impl SuffixTree {
 
         let mut should_establish_link = false;
 
+        debug!("u_idx: {}", u_idx);
+
         // find the next node to go to
         let v = match v_idx {
             Some(v_idx) => {
@@ -180,9 +182,13 @@ impl SuffixTree {
 
                 debug!("CASE 2: u' = {}", u_prime);
                 debug!("CASE 2: v' = {}", v_prime);
-                debug!("CASE 2: B' = {}->{}", u_ref.edge_start, u_ref.edge_end);
+                debug!(
+                    "CASE 2: B' = {}->{} ({})",
+                    u_ref.edge_start,
+                    u_ref.edge_end,
+                    self.original_string[u_ref.edge_start..u_ref.edge_end].to_string()
+                );
 
-                // go to v'
                 let v = match u_prime == 0 {
                     // CASE 2B
                     true => self.node_hops(v_prime, u_ref.edge_start + 1, u_ref.edge_end),
@@ -199,20 +205,19 @@ impl SuffixTree {
             }
         };
 
-        let new_leaf_idx = self.find_path(suffix_idx, 0);
-        let new_leaf_parent = self.nodes[new_leaf_idx].as_ref().unwrap().parent.unwrap();
-
         // establish suffix link from u to v
         if u_idx != 0 && should_establish_link {
             // if the string depth of u is 1, link to the root node
             if self.nodes[u_idx].as_ref().unwrap().string_depth == 1 {
-                debug!("Linking last u {} to root", u_idx);
+                debug!("Linking u {} to root", u_idx);
                 self.nodes[u_idx].as_mut().unwrap().suffix_link = Some(0);
             } else {
-                debug!("Linking last u {} to v {}", u_idx, new_leaf_parent);
-                self.nodes[u_idx].as_mut().unwrap().suffix_link = Some(new_leaf_parent);
+                debug!("Linking u {} to v {}", u_idx, v);
+                self.nodes[u_idx].as_mut().unwrap().suffix_link = Some(v);
             }
         }
+
+        self.find_path(suffix_idx, v);
 
         // print graphviz at this point
         debug!("\n{}", self.write_graphviz());
@@ -329,13 +334,19 @@ impl SuffixTree {
         break_idx: usize,
         leaf_start: usize,
         leaf_end: usize,
+        create_leaf: bool,
     ) -> usize {
         // if it doesn't have a parent, panic
         let node_ref = &mut self.nodes[node]
             .as_mut()
             .expect("Node not found in break_edge");
 
-        debug!("Breaking edge at index {}", break_idx);
+        debug!(
+            "Breaking edge at index {} into {} and {}",
+            break_idx,
+            self.original_string[node_ref.edge_start..break_idx].to_string(),
+            self.original_string[break_idx..node_ref.edge_end].to_string()
+        );
 
         // Get the current label
         let original_label_start = node_ref.edge_start;
@@ -354,8 +365,12 @@ impl SuffixTree {
         let new_internal_node =
             self.create_internal_node(parent, node, original_label_start, break_idx);
 
-        // add the leaf on the new internal node
-        return self.create_leaf(new_internal_node, leaf_start, leaf_end);
+        if create_leaf {
+            // add the leaf on the new internal node
+            return self.create_leaf(new_internal_node, leaf_start, leaf_end);
+        } else {
+            return new_internal_node;
+        }
     }
 
     /**
@@ -437,46 +452,94 @@ impl SuffixTree {
      * Hops down the tree until we reach a node where the edge label is
      * greater than our suffix progress
      */
-    pub fn node_hops(&self, current_node: usize, beta_start: usize, beta_end: usize) -> usize {
-        let beta_length: usize = beta_end - beta_start;
-        let mut current_node_ref = self.nodes[current_node].as_ref().unwrap();
+    pub fn node_hops(&mut self, current_node: usize, beta_start: usize, beta_end: usize) -> usize {
+        debug!("[NodeHops] Hop from {}", current_node);
 
-        loop {
-            // get first character of suffix (at this depth)
-            let c = self.original_string.as_bytes()[beta_start];
+        let beta_length: usize = beta_end
+            .checked_sub(beta_start)
+            .expect(format!("beta (start): {}, beta (end): {}", beta_start, beta_end).as_str());
+
+        let mut current_node_idx = current_node;
+
+        // if beta is of length 0, return the current node
+        if beta_length == 0 {
+            debug!(
+                "[NodeHops] Can't hop from {} anymore (beta length is 0)",
+                current_node_idx
+            );
+            return current_node_idx;
+        }
+
+        let mut remaining_beta = beta_length;
+        while remaining_beta > 0 {
+            let current_node_ref = self.nodes[current_node_idx].as_ref().unwrap();
+            debug!("[NodeHops] Current node: {}", current_node_ref.id);
+
+            let c = self.original_string.as_bytes()[beta_end - remaining_beta] as char;
+
             let child_idx: usize = get_child_index(&self.alphabet, c as char);
-            let child_node = current_node_ref.children[child_idx];
+            let child_node_idx = current_node_ref.children[child_idx];
 
-            match child_node {
-                None => {
-                    debug!(
-                        "[NodeHops] Can't hop from {} anymore (no valid children)",
-                        current_node_ref.id
-                    );
-                    return current_node_ref.id;
-                }
-                Some(child_node) => {
-                    let child_node_ref = self.nodes[child_node].as_ref().unwrap();
+            match child_node_idx {
+                Some(child_node_idx) => {
+                    let child_node_ref = self.nodes[child_node_idx].as_ref().unwrap();
+                    let child_edge_length = child_node_ref.edge_end - child_node_ref.edge_start;
 
-                    if current_node_ref.string_depth + child_node_ref.string_depth >= beta_length {
-                        debug!("[NodeHops] Can't hop from {} anymore", current_node_ref.id);
-                        return current_node_ref.id;
+                    if child_edge_length <= remaining_beta {
+                        // hop to the next node
+                        remaining_beta -= child_edge_length;
+                        current_node_idx = child_node_ref.id;
+                        debug!(
+                            "[NodeHops] Hopping to child node {} (remaining beta: {})",
+                            child_node_ref.id, remaining_beta
+                        );
                     } else {
                         debug!(
-                            "[NodeHops] Hopping to {} from {}",
-                            current_node_ref.id, child_node
+                            "[NodeHops] Found child node with partial match {}",
+                            child_node_ref.id
                         );
-                        current_node_ref = child_node_ref;
+
+                        let mut break_idx = 0;
+                        for i in 0..remaining_beta {
+                            let c1 = self.original_string.as_bytes()[child_node_ref.edge_start + i]
+                                as char;
+                            let c2 = self.original_string.as_bytes()[beta_end - remaining_beta + i]
+                                as char;
+
+                            if c1 != c2 {
+                                debug!("[NodeHops] Found mismatch at {}: {} != {}", i, c1, c2);
+                                break;
+                            } else {
+                                debug!("[NodeHops] Found match at {}: {} == {}", i, c1, c2);
+                            }
+
+                            break_idx = child_node_ref.edge_start + i + 1;
+                        }
+
+                        current_node_idx = self.break_edge(child_node_idx, break_idx, 0, 0, false);
+                        break;
                     }
+                }
+                None => {
+                    // return current node
+                    debug!(
+                        "[NodeHops] Can't hop from {} anymore (no child node)",
+                        current_node_ref.id
+                    );
+                    break;
                 }
             }
         }
+
+        debug!("[NodeHops] Returning node {}", current_node_idx);
+
+        return current_node_idx;
     }
 
     /**
      * Walks down the tree and inserts new leaf for the given suffix
      */
-    pub fn find_path(&mut self, suffix_idx: usize, start_node: usize) -> usize {
+    pub fn find_path(&mut self, suffix_idx: usize, start_node: usize) {
         let mut current_node = self.nodes[start_node]
             .as_ref()
             .expect(format!("Start node {} not found", start_node).as_str());
@@ -485,7 +548,8 @@ impl SuffixTree {
         debug!("Current node: {}", current_node.id);
 
         // how far we've already walked down the suffix
-        let mut suffix_sub_idx = current_node.string_depth;
+        let mut suffix_sub_idx =
+            current_node.string_depth - (current_node.edge_end - current_node.edge_start);
 
         debug!(
             "Suffix sub-index: {}, suffix index: {}",
@@ -515,14 +579,16 @@ impl SuffixTree {
                 );
 
                 if suffix_char != c {
-                    return self.break_edge(
+                    self.break_edge(
                         current_node.id,
                         label_idx,
                         // leaf label is the position we're at in the suffix
                         // and the index of the end of the original string (since it's a suffix and we're at the end)
                         suffix_idx + suffix_sub_idx,
                         self.original_string.len(),
+                        true,
                     );
+                    return;
                 }
 
                 suffix_sub_idx += 1;
@@ -531,7 +597,11 @@ impl SuffixTree {
             debug!("Done with edge of current node {}", current_node.id);
 
             if suffix_sub_idx >= suffix_len {
-                return current_node.id;
+                error!(
+                    "ERR: Suffix sub-idx {} is greater than suffix length {}",
+                    suffix_idx, suffix_len
+                );
+                return;
             }
 
             // if we've reached the end of the edge label, move to the next node
@@ -558,11 +628,12 @@ impl SuffixTree {
                 // there's no child node, so we need to add a new leaf
                 None => {
                     debug!("No child node found, adding new leaf");
-                    return self.create_leaf(
+                    self.create_leaf(
                         current_node.id,
                         suffix_idx + suffix_sub_idx,
                         self.original_string.len(),
                     );
+                    return;
                 }
             }
         }
