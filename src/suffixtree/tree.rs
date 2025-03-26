@@ -516,6 +516,7 @@ impl SuffixTree {
                             break_idx = child_node_ref.edge_start + i + 1;
                         }
 
+                        // break edge and create internal node (v)
                         current_node_idx = self.break_edge(child_node_idx, break_idx, 0, 0, false);
                         break;
                     }

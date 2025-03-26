@@ -24,10 +24,10 @@ enum Command {
         #[arg(short, long)]
         alphabet_file: String,
 
-        #[arg(short, long, default_value_t = true)]
+        #[arg(short, long, default_value_t = false)]
         suffix_links: bool,
 
-        #[arg(short, long, default_value_t = true)]
+        #[arg(short, long, default_value_t = false)]
         stats: bool,
     },
 }
