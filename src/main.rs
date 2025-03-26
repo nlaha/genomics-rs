@@ -48,7 +48,7 @@ fn main() {
 
     // set default log level
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "info")
+        env::set_var("RUST_LOG", "debug")
     }
 
     // init logging
