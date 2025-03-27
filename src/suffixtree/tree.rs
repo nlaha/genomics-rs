@@ -114,9 +114,9 @@ impl SuffixTree {
             // if suffix is longer than 100 characters, truncate it
             if i % (tree.original_string.len() / 100) == 0 {
                 if suffix.len() > 100 {
-                    info!("[FindPath] {}/{} {}...", i, string_length, &suffix[..100]);
+                    info!("[Suffix] {}/{} {}...", i, string_length, &suffix[..100]);
                 } else {
-                    info!("[FindPath] {}/{} {}", i, string_length, suffix);
+                    info!("[Suffix] {}/{} {}", i, string_length, suffix);
                 }
             }
 
