@@ -31,7 +31,6 @@ pub struct SuffixTree {
     pub original_string: String,
     last_internal_id: usize,
     last_leaf_id: usize,
-    pub suffixes: Vec<String>,
     pub alphabet: Vec<char>,
     pub nodes: Vec<Option<TreeNode>>,
     pub stats: TreeStats,
@@ -77,7 +76,6 @@ impl SuffixTree {
             original_string: original_string.to_string() + "$",
             last_internal_id: string_length + 2,
             last_leaf_id: 1,
-            suffixes: Vec::with_capacity(string_length),
             alphabet: alphabet_sorted,
             nodes: vec![None; string_length * 2 + 1],
             stats: TreeStats {
@@ -112,7 +110,7 @@ impl SuffixTree {
         for i in 0..string_length + 1 {
             let suffix = tree.original_string[i..].to_string();
             // if suffix is longer than 100 characters, truncate it
-            if i % (tree.original_string.len() / 100) == 0 {
+            if (tree.original_string.len() > 100) && i % (tree.original_string.len() / 100) == 0 {
                 if suffix.len() > 100 {
                     info!("[Suffix] {}/{} {}...", i, string_length, &suffix[..100]);
                 } else {
@@ -120,7 +118,6 @@ impl SuffixTree {
                 }
             }
 
-            tree.suffixes.push(suffix.to_string());
             if enable_suffix_links {
                 tree.suffix_link_traversal(i);
             } else {
@@ -238,7 +235,7 @@ impl SuffixTree {
      */
     pub fn display_string_depth(&self, f: &mut std::fmt::Formatter<'_>) {
         writeln!(f, "String Depth: depth (node ID)").unwrap();
-        self.dfs(&mut |node: TreeNode| {
+        self.dfs(&mut |node: &TreeNode| {
             write!(f, "{} (n{}), ", node.string_depth, node.id).unwrap();
         });
         writeln!(f, "\n").unwrap();
@@ -257,9 +254,11 @@ impl SuffixTree {
         let mut max_string_depth = 0;
         let mut string_depth_sum = 0;
 
-        self.dfs(&mut |node: TreeNode| {
+        self.dfs(&mut |node: &TreeNode| {
             // if it's a leaf
-            if node.id > 0 && node.id < self.suffixes.len() + 1 && idx < self.original_string.len()
+            if node.id > 0
+                && node.id < self.original_string.len() + 1
+                && idx < self.original_string.len()
             {
                 num_leaves += 1;
                 if node.id == 1 {
@@ -294,7 +293,9 @@ impl SuffixTree {
     /**
      * Adds a child node to the given parent node
      */
-    pub fn add_child(&mut self, parent: usize, child: TreeNode) {
+    pub fn add_child(&mut self, parent: usize, mut child: TreeNode) {
+        child.parent = Some(parent);
+
         // figure out where we should insert it
         let child_idx = match self.original_string.bytes().nth(child.edge_start) {
             Some(c) => get_child_index(&self.alphabet, c as char),
@@ -310,23 +311,20 @@ impl SuffixTree {
         parent_ref.children[child_idx] = Some(child.id);
 
         // add to nodes array
-        self.nodes[child.id] = Some(child.clone());
-
-        // update the child's parent
-        let child_ref = self.nodes[child.id].as_mut().unwrap();
-        child_ref.parent = Some(parent);
+        let child_id = child.id;
+        self.nodes[child_id] = Some(child);
     }
 
     /**
      * Performs a Depth First Search (DFS) on the suffix tree
      * executing a callback on each node
      */
-    pub fn dfs(&self, callback: &mut dyn FnMut(TreeNode)) {
+    pub fn dfs(&self, callback: &mut dyn FnMut(&TreeNode)) {
         let mut stack = vec![self.nodes[0].as_ref().expect("Root node not found")];
 
         while let Some(node) = stack.pop() {
             //debug!("DFS: {}", node.id);
-            callback(node.clone());
+            callback(node);
             for child in node.children.iter().rev().flatten() {
                 stack.push(self.nodes[*child].as_ref().expect("Child node not found"));
             }
@@ -658,19 +656,11 @@ mod test {
     use super::SuffixTree;
 
     #[test]
-    fn test_tree_simple() {
-        let mut tree = SuffixTree::new("A", "alphabets/dna.txt", true);
-        tree.compute_stats();
-
-        assert_eq!(tree.suffixes.len(), 2);
-    }
-
-    #[test]
     fn test_tree_simple2() {
         let mut tree = SuffixTree::new("ACA", "alphabets/dna.txt", true);
         tree.compute_stats();
 
-        assert_eq!(tree.suffixes.len(), 4);
+        assert_eq!(tree.stats.num_nodes, 6);
     }
 
     #[test]
@@ -679,8 +669,6 @@ mod test {
         tree.compute_stats();
 
         println!("{}", tree);
-
-        assert_eq!(tree.suffixes.len(), 7);
 
         assert_eq!(tree.stats.num_internal, 3);
         assert_eq!(tree.stats.num_leaves, 7);
@@ -697,8 +685,6 @@ mod test {
         tree.compute_stats();
 
         println!("{}", tree);
-
-        assert_eq!(tree.suffixes.len(), 12);
 
         assert_eq!(tree.stats.num_internal, 6);
         assert_eq!(tree.stats.num_leaves, 12);

@@ -54,7 +54,7 @@ impl Display for SuffixTree {
 impl SuffixTree {
     pub fn write_graphviz(&self) -> String {
         let mut graph = Graph::<String, String>::new();
-        self.dfs(&mut |node: TreeNode| {
+        self.dfs(&mut |node: &TreeNode| {
             let node_idx = graph.add_node(node.id.to_string());
 
             match node.parent {
