@@ -100,17 +100,26 @@ impl SuffixTree {
             suffix_link: Some(0),
         });
 
+        // print the size of a single node in RAM
+        info!(
+            "Size of a single node in RAM: {} bytes",
+            std::mem::size_of_val(&tree.nodes[0])
+        );
+
         let before_tree = Instant::now();
 
         // build a set of suffixes with '$' appended to the end
         for i in 0..string_length + 1 {
             let suffix = tree.original_string[i..].to_string();
             // if suffix is longer than 100 characters, truncate it
-            if suffix.len() > 100 {
-                debug!("[FindPath] {}/{} {}...", i, string_length, &suffix[..100]);
-            } else {
-                debug!("[FindPath] {}/{} {}", i, string_length, suffix);
+            if i % (tree.original_string.len() / 100) == 0 {
+                if suffix.len() > 100 {
+                    info!("[FindPath] {}/{} {}...", i, string_length, &suffix[..100]);
+                } else {
+                    info!("[FindPath] {}/{} {}", i, string_length, suffix);
+                }
             }
+
             tree.suffixes.push(suffix.to_string());
             if enable_suffix_links {
                 tree.suffix_link_traversal(i);
