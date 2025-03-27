@@ -79,7 +79,7 @@ impl SuffixTree {
             last_leaf_id: 1,
             suffixes: Vec::with_capacity(string_length),
             alphabet: alphabet_sorted,
-            nodes: vec![None; string_length * 2 + 2],
+            nodes: vec![None; string_length],
             stats: TreeStats {
                 num_internal: 0,
                 num_leaves: 0,
@@ -310,7 +310,7 @@ impl SuffixTree {
         parent_ref.children[child_idx] = Some(child.id);
 
         // add to nodes array
-        self.nodes[child.id] = Some(child.clone());
+        self.nodes.insert(child.id, Some(child.clone()));
 
         // update the child's parent
         let child_ref = self.nodes[child.id].as_mut().unwrap();
