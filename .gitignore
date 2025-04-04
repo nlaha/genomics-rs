@@ -18,3 +18,4 @@ target/
 
 perf.*
 profile.*
+bwt_out
