@@ -24,6 +24,8 @@ pub struct TreeStats {
     pub average_string_depth: f64,
     pub max_string_depth: usize,
     pub bwt: String,
+    pub longest_repeat_len: usize,
+    pub longest_repeat_start: usize,
 }
 
 pub struct SuffixTree {
@@ -85,6 +87,8 @@ impl SuffixTree {
                 average_string_depth: 0.0,
                 max_string_depth: 0,
                 bwt: "".to_string(),
+                longest_repeat_len: 0,
+                longest_repeat_start: 0,
             },
         };
 
@@ -253,6 +257,9 @@ impl SuffixTree {
         let mut num_internal = 0;
         let mut max_string_depth = 0;
         let mut string_depth_sum = 0;
+        let mut longest_repeat_len = 0;
+        let mut longest_repeat_start = 0;
+        let mut longest_repeat = false;
 
         self.dfs(&mut |node: &TreeNode| {
             // if it's a leaf
@@ -260,6 +267,13 @@ impl SuffixTree {
                 && node.id < self.original_string.len() + 1
                 && idx < self.original_string.len()
             {
+                // if we previously found a longest repeat (internal node)
+                // set the longest repeat start to the node id
+                if longest_repeat {
+                    longest_repeat_start = node.id;
+                    longest_repeat = false;
+                }
+
                 num_leaves += 1;
                 if node.id == 1 {
                     bwt[idx] = '$';
@@ -276,10 +290,16 @@ impl SuffixTree {
                 num_internal += 1;
                 string_depth_sum += node.string_depth;
                 if node.string_depth > max_string_depth {
+                    // this is also the longest matching repeat
+                    longest_repeat_len = node.string_depth;
+                    longest_repeat = true;
                     max_string_depth = node.string_depth;
                 }
             }
         });
+
+        self.stats.longest_repeat_len = longest_repeat_len;
+        self.stats.longest_repeat_start = longest_repeat_start;
 
         self.stats.num_leaves = num_leaves;
         self.stats.num_internal = num_internal;

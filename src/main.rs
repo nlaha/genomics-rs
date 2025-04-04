@@ -128,7 +128,21 @@ fn main() {
                 suffix_tree.compute_stats();
 
                 // delete bwt file if it exists
-                if let Err(e) = std::fs::remove_file("bwt.txt") {
+                let bwt_path = format!(
+                    "BWT_out/{}_bwt.txt",
+                    args.fasta_path
+                        .split("/")
+                        .last()
+                        .unwrap()
+                        .split("\\")
+                        .last()
+                        .unwrap()
+                        .replace(".fasta", "")
+                );
+
+                info!("BWT Path: {}", bwt_path);
+
+                if let Err(e) = std::fs::remove_file(bwt_path.clone()) {
                     eprintln!("Couldn't delete file: {}", e);
                 }
 
@@ -136,7 +150,7 @@ fn main() {
                     .create(true)
                     .write(true)
                     .append(true)
-                    .open("bwt.txt")
+                    .open(bwt_path)
                     .unwrap();
 
                 // write bwt to file

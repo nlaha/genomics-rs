@@ -17,6 +17,8 @@ impl Display for TreeStats {
             Nodes: {}
             Average string depth: {}
             Max string depth: {}
+            Longest repeat start: {}
+            Longest repeat length: {}
             ",
             if self.bwt.len() > 100 {
                 self.bwt[..100].to_string() + "... (truncated)"
@@ -28,7 +30,9 @@ impl Display for TreeStats {
             self.num_leaves,
             self.num_nodes,
             self.average_string_depth,
-            self.max_string_depth
+            self.max_string_depth,
+            self.longest_repeat_start,
+            self.longest_repeat_len
         )
     }
 }
