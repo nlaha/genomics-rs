@@ -1,5 +1,5 @@
-use std::panic;
 use std::time::Instant;
+use std::{env, panic};
 
 use log::{debug, error, info};
 
@@ -112,13 +112,16 @@ impl SuffixTree {
 
         // build a set of suffixes with '$' appended to the end
         for i in 0..string_length + 1 {
-            let suffix = tree.original_string[i..].to_string();
-            // if suffix is longer than 100 characters, truncate it
-            if (tree.original_string.len() > 100) && i % (tree.original_string.len() / 100) == 0 {
-                if suffix.len() > 100 {
-                    info!("[Suffix] {}/{} {}...", i, string_length, &suffix[..100]);
-                } else {
-                    info!("[Suffix] {}/{} {}", i, string_length, suffix);
+            if env::var("RUST_LOG") == Ok("debug".to_string()) {
+                let suffix = tree.original_string[i..].to_string();
+                // if suffix is longer than 100 characters, truncate it
+                if (tree.original_string.len() > 100) && i % (tree.original_string.len() / 100) == 0
+                {
+                    if suffix.len() > 100 {
+                        debug!("[Suffix] {}/{} {}...", i, string_length, &suffix[..100]);
+                    } else {
+                        debug!("[Suffix] {}/{} {}", i, string_length, suffix);
+                    }
                 }
             }
 
