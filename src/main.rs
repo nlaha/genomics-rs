@@ -119,13 +119,14 @@ fn main() {
             info!("Suffix links: {}", suffix_links);
 
             let mut suffix_tree = suffixtree::tree::SuffixTree::new(
-                &sequence_container.sequences[0].sequence,
                 alphabet_file,
-                *suffix_links,
+                sequence_container.sequences[0].sequence.len(),
             );
 
+            suffix_tree.insert_string(&sequence_container.sequences[0].sequence, *suffix_links);
+
             if *stats {
-                suffix_tree.compute_stats();
+                suffix_tree.compute_stats(0);
 
                 // delete bwt file if it exists
                 let bwt_path = format!(

@@ -2,6 +2,7 @@ use std::{env, fmt::Display};
 
 use log::warn;
 use petgraph::{dot::Dot, Graph};
+use regex::Regex;
 
 use super::tree::{SuffixTree, TreeNode, TreeStats};
 
@@ -74,7 +75,8 @@ impl SuffixTree {
                     graph.add_edge(
                         parent_idx,
                         node_idx,
-                        self.original_string[node.edge_start..node.edge_end].to_string(),
+                        self.strings[node.string_idx][node.edge_start..node.edge_end].to_string()
+                            + format!(" [{}]", node.string_idx).as_str(),
                     );
                 }
                 None => {
@@ -110,6 +112,20 @@ impl SuffixTree {
         let mut dot = format!("{}", Dot::new(&graph));
         dot = dot.replace("[ label = \"[SL]\"", "[ color = \"red\" style = \"dashed\"");
 
+        // run a regex match on the dot string and set the edge color accordingly
+        let re = regex::Regex::new(r##"(\[\d+\]\")+"##).unwrap();
+
+        // iterate through the matches and extract the suffix index
+        let colors = vec![
+            "blue", "green", "orange", "purple", "pink", "brown", "cyan", "magenta",
+        ];
+        for cap in re.captures_iter(dot.to_string().as_str()) {
+            let suffix_idx: &str = cap[0].split("[").last().unwrap().split("]").next().unwrap();
+            let color = colors[suffix_idx.parse::<usize>().unwrap() % colors.len()];
+            dot = dot.replace(&cap[0], &format!("\" color = \"{}\"", color));
+        }
+
+        // return the dot string
         dot
     }
 }

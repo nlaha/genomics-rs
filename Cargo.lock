@@ -267,6 +267,7 @@ dependencies = [
  "num",
  "petgraph",
  "pretty_env_logger",
+ "regex",
  "serde",
  "serde_derive",
  "slab",
