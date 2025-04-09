@@ -33,7 +33,7 @@ pub struct SuffixTree {
     // nodes are stored in a flat vector
     pub strings: Vec<String>,
     last_internal_id: usize,
-    last_leaf_id: usize,
+    next_leaf_id: usize,
     pub alphabet: Vec<char>,
     pub nodes: Vec<Option<TreeNode>>,
     pub stats: TreeStats,
@@ -61,7 +61,7 @@ impl SuffixTree {
         // offset all indices for the next string so we have a layout like
         // S1_leaves S1_internal S2_leaves S2_internal
         if self.last_internal_id != 0 {
-            self.last_leaf_id = self.last_internal_id;
+            self.next_leaf_id = self.last_internal_id;
         }
         self.last_internal_id += string_length + 2;
 
@@ -76,6 +76,10 @@ impl SuffixTree {
 
         // build a set of suffixes with '$' appended to the end
         for i in 0..string_length + 1 {
+            debug!(
+                "Inserting suffix {}",
+                self.strings[string_idx][i..].to_string()
+            );
             if enable_suffix_links {
                 self.suffix_link_traversal(i, string_idx);
             } else {
@@ -113,7 +117,7 @@ impl SuffixTree {
         let mut tree = SuffixTree {
             strings: vec![],
             last_internal_id: 0,
-            last_leaf_id: 1,
+            next_leaf_id: 1,
             alphabet: alphabet_sorted,
             nodes: vec![None; initial_allocation * 2 + 1],
             stats: TreeStats {
@@ -153,7 +157,7 @@ impl SuffixTree {
      */
     fn suffix_link_traversal(&mut self, suffix_idx: usize, string_idx: usize) {
         // update suffix link
-        let u_idx = self.nodes[self.last_leaf_id - 1]
+        let u_idx = self.nodes[self.next_leaf_id - 1]
             .as_ref()
             .unwrap()
             .parent
@@ -317,7 +321,8 @@ impl SuffixTree {
         leaf_start: usize,
         leaf_end: usize,
         create_leaf: bool,
-        string_idx: usize,
+        internal_string_idx: usize,
+        leaf_string_idx: usize,
     ) -> usize {
         // if it doesn't have a parent, panic
         let node_ref = &mut self.nodes[node]
@@ -338,12 +343,17 @@ impl SuffixTree {
         let parent = node_ref
             .parent
             .expect("Node has no parent - cannot break edge");
-        let new_internal_node =
-            self.create_internal_node(parent, node, original_label_start, break_idx, string_idx);
+        let new_internal_node = self.create_internal_node(
+            parent,
+            node,
+            original_label_start,
+            break_idx,
+            internal_string_idx,
+        );
 
         if create_leaf {
             // add the leaf on the new internal node
-            return self.create_leaf(new_internal_node, leaf_start, leaf_end, string_idx);
+            return self.create_leaf(new_internal_node, leaf_start, leaf_end, leaf_string_idx);
         } else {
             return new_internal_node;
         }
@@ -403,7 +413,7 @@ impl SuffixTree {
         string_idx: usize,
     ) -> usize {
         let parent_ref = self.nodes[parent].as_ref().expect("Parent node not found");
-        let leaf_id: usize = self.last_leaf_id;
+        let leaf_id: usize = self.next_leaf_id;
 
         let leaf = TreeNode {
             id: leaf_id,
@@ -416,7 +426,7 @@ impl SuffixTree {
             string_idx: string_idx,
         };
 
-        self.last_leaf_id += 1;
+        self.next_leaf_id += 1;
 
         self.add_child(parent, leaf, string_idx);
 
@@ -457,6 +467,7 @@ impl SuffixTree {
             debug!("[NodeHops] Current node: {}", current_node_ref.id);
 
             let c = self.strings[beta_string_idx].as_bytes()[beta_end - remaining_beta] as char;
+            debug!("[NodeHops] Fetching index for character {}", c);
 
             let child_idx: usize = get_child_index(&self.alphabet, c as char);
             let child_node_idx = current_node_ref.children[child_idx];
@@ -507,6 +518,7 @@ impl SuffixTree {
                             0,
                             false,
                             child_node_ref.string_idx,
+                            0, // unused
                         );
                         break;
                     }
@@ -601,14 +613,14 @@ impl SuffixTree {
             .expect(format!("Start node {} not found", start_node).as_str());
         let suffix_len = self.strings[string_idx].len() - suffix_idx;
 
-        debug!("Current node: {}", current_node.id);
+        debug!("[FindPath] Current node: {}", current_node.id);
 
         // how far we've already walked down the suffix
         let mut suffix_sub_idx =
             current_node.string_depth - (current_node.edge_end - current_node.edge_start);
 
         debug!(
-            "Suffix sub-index: {}, suffix index: {}",
+            "[FindPath] Suffix sub-index: {}, suffix index: {}",
             suffix_sub_idx, suffix_idx
         );
 
@@ -616,7 +628,7 @@ impl SuffixTree {
             // walk down label on current node's edge
             for label_idx in current_node.edge_start..current_node.edge_end {
                 if suffix_sub_idx > suffix_len {
-                    debug!("Reached end of suffix");
+                    debug!("[FindPath] Reached end of suffix");
                     break;
                 }
 
@@ -626,7 +638,7 @@ impl SuffixTree {
                 // if the suffix character is not equal to the edge character
                 // break a new edge and insert a new leaf
                 debug!(
-                    "Comparing [{}] {} to {} [{}]",
+                    "[FindPath] Comparing [{}] {} to {} [{}]",
                     suffix_sub_idx, suffix_char as char, c as char, label_idx
                 );
 
@@ -639,6 +651,7 @@ impl SuffixTree {
                         suffix_idx + suffix_sub_idx,
                         self.strings[string_idx].len(),
                         true,
+                        current_node.string_idx,
                         string_idx,
                     );
                     return;
@@ -647,12 +660,21 @@ impl SuffixTree {
                 suffix_sub_idx += 1;
             }
 
-            debug!("Done with edge of current node {}", current_node.id);
+            debug!(
+                "[FindPath] Done with edge of current node {}",
+                current_node.id
+            );
 
-            if suffix_sub_idx >= suffix_len {
+            if suffix_sub_idx == suffix_len {
+                debug!("[FindPath] Reached end of suffix (perfect match with existing)");
+                self.next_leaf_id = current_node.id + 1;
+                return;
+            }
+
+            if suffix_sub_idx > suffix_len {
                 error!(
-                    "ERR: Suffix sub-idx {} is greater than suffix length {}",
-                    suffix_idx, suffix_len
+                    "ERR: Suffix sub-idx {} is greater suffix length {}",
+                    suffix_sub_idx, suffix_len
                 );
                 return;
             }
@@ -663,7 +685,7 @@ impl SuffixTree {
             let c = self.strings[string_idx].as_bytes()[suffix_idx + suffix_sub_idx] as char;
 
             debug!(
-                "Checking for child with {}, suffix index: {}",
+                "[FindPath] Checking for child with {}, suffix index: {}",
                 c, suffix_sub_idx
             );
 
@@ -673,14 +695,17 @@ impl SuffixTree {
             match child_node {
                 // there's already a child node, so we need to keep moving down the tree
                 Some(n) => {
-                    debug!("Found next child node for {}, child idx: {}", c, child_idx);
+                    debug!(
+                        "[FindPath] Found next child node for {}, child idx: {}",
+                        c, child_idx
+                    );
                     current_node = self.nodes[n]
                         .as_ref()
                         .expect("Child node not found when walking");
                 }
                 // there's no child node, so we need to add a new leaf
                 None => {
-                    debug!("No child node found, adding new leaf");
+                    debug!("[FindPath] No child node found, adding new leaf");
                     self.create_leaf(
                         current_node.id,
                         suffix_idx + suffix_sub_idx,
@@ -851,6 +876,7 @@ mod test {
         let mut tree = SuffixTree::new("alphabets/banana.txt", 10);
         tree.insert_string("BANANA", true);
         tree.insert_string("BANANAB", true);
+        tree.insert_string("ABABABA", true);
         tree.compute_stats(0);
 
         println!("{}", tree);

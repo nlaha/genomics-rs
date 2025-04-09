@@ -40,8 +40,8 @@ impl Display for TreeStats {
 
 impl Display for SuffixTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // if the number of nodes is < 50, compute graphviz
-        if self.nodes.len() < 50 {
+        // if the number of nodes is < 100, compute graphviz
+        if self.nodes.len() < 100 {
             let dot = self.write_graphviz();
             writeln!(f, "Graphviz:\n {}", dot)?;
         } else {
