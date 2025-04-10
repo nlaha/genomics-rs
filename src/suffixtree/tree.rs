@@ -1,5 +1,9 @@
+use std::collections::HashMap;
+use std::ops::Range;
 use std::panic;
 use std::time::Instant;
+
+use bitvec::prelude::*;
 
 use log::{debug, error, info};
 
@@ -10,12 +14,17 @@ use log::{debug, error, info};
 pub struct TreeNode {
     pub id: usize,
     pub string_depth: usize,
-    pub string_idx: usize,
     pub edge_start: usize,
     pub edge_end: usize,
     pub parent: Option<usize>,
     pub suffix_link: Option<usize>,
     pub children: Vec<Option<usize>>,
+
+    // the string index this node was created by
+    pub string_idx: usize,
+
+    // the strings this node is a part of
+    pub associated_strings: BitVec<u32, Lsb0>,
 }
 
 pub struct TreeStats {
@@ -30,13 +39,15 @@ pub struct TreeStats {
 }
 
 pub struct SuffixTree {
-    // nodes are stored in a flat vector
     pub strings: Vec<String>,
-    last_internal_id: usize,
+    next_internal_id: usize,
     next_leaf_id: usize,
     pub alphabet: Vec<char>,
+
+    // nodes are stored in a flat vector
     pub nodes: Vec<Option<TreeNode>>,
     pub stats: TreeStats,
+    pub string_leaf_ranges: HashMap<usize, Range<usize>>,
 }
 
 /**
@@ -60,10 +71,20 @@ impl SuffixTree {
 
         // offset all indices for the next string so we have a layout like
         // S1_leaves S1_internal S2_leaves S2_internal
-        if self.last_internal_id != 0 {
-            self.next_leaf_id = self.last_internal_id;
+        if self.next_internal_id != 0 {
+            self.next_leaf_id = self.next_internal_id;
         }
-        self.last_internal_id += string_length + 2;
+
+        self.next_internal_id += string_length + 2;
+
+        // keep track of where the leaves are located for each string
+        self.string_leaf_ranges.insert(
+            self.strings.len(),
+            Range {
+                start: self.next_leaf_id,
+                end: self.next_internal_id,
+            },
+        );
 
         // resize nodes array to fit new string
         self.nodes
@@ -116,7 +137,7 @@ impl SuffixTree {
 
         let mut tree = SuffixTree {
             strings: vec![],
-            last_internal_id: 0,
+            next_internal_id: 0,
             next_leaf_id: 1,
             alphabet: alphabet_sorted,
             nodes: vec![None; initial_allocation * 2 + 1],
@@ -130,6 +151,7 @@ impl SuffixTree {
                 longest_repeat_len: 0,
                 longest_repeat_start: 0,
             },
+            string_leaf_ranges: HashMap::new(),
         };
 
         tree.nodes[0] = Some(TreeNode {
@@ -141,6 +163,9 @@ impl SuffixTree {
             edge_end: 0,
             suffix_link: Some(0),
             string_idx: 0,
+
+            // initialize associated strings with empty bitvec of max size
+            associated_strings: bitvec![u32, Lsb0; 0; 32],
         });
 
         // print the size of a single node in RAM
@@ -150,6 +175,112 @@ impl SuffixTree {
         );
 
         return tree;
+    }
+
+    /**
+     * Gets the index of the suffix from the leaf node's id and a string index
+     * (i.e. the index of the suffix in the original string starting from 0)
+     */
+    fn offset_leaf(&self, leaf_idx: usize, string_idx: usize) -> Option<usize> {
+        if string_idx == 0 {
+            return Some(leaf_idx);
+        }
+        return leaf_idx.checked_sub(self.string_leaf_ranges.get(&string_idx).unwrap().start);
+    }
+
+    /**
+     * Returns true if the given node is a leaf node
+     */
+    fn is_leaf(&self, node: &TreeNode) -> bool {
+        return self
+            .string_leaf_ranges
+            .get(&node.string_idx)
+            .unwrap()
+            .contains(&node.id);
+    }
+
+    /**
+     * Gets the lcs (longest common substring) between two strings
+     * The return value is (i, j, length)
+     */
+    fn get_lcs(&self, string_one_idx: usize, string_two_idx: usize) -> (usize, usize, usize) {
+        let mut lcs = (0, 0, 0);
+
+        let predicate = |string_idx: usize, child: &TreeNode| {
+            // make sure we're not an internal node
+            if !self.is_leaf(child) {
+                return false;
+            }
+
+            let has_string = *child.associated_strings.get(string_idx).unwrap();
+            if has_string {
+                // done! we found a leaf of the string
+                return true;
+            }
+            return false;
+        };
+
+        let mut max_string_depth: usize = 0;
+        let mut deepest_internal: usize = 0;
+        self.dfs(
+            &mut |node: &TreeNode| {
+                // skip nodes that only have one string
+                if node.associated_strings.count_ones() < 2 {
+                    return false;
+                }
+
+                // ensure node has both strings
+                let has_both_strings = *node.associated_strings.get(string_one_idx).unwrap()
+                    && *node.associated_strings.get(string_two_idx).unwrap();
+
+                // if we have both strings, check the string depth
+                if has_both_strings && node.string_depth > max_string_depth {
+                    max_string_depth = node.string_depth;
+                    deepest_internal = node.id;
+                }
+
+                return false;
+            },
+            0,
+        );
+
+        // now that we have the deepest internal node, find leaves associated with each string
+        if self.is_leaf(&self.nodes[deepest_internal].as_ref().unwrap()) {
+            // if the deepest internal node is a shared leaf, we can just use it directly
+            lcs = (
+                self.offset_leaf(deepest_internal, string_one_idx).unwrap(),
+                self.offset_leaf(deepest_internal, string_one_idx).unwrap(),
+                // leaves have '$' at the end, so we need to subtract 1
+                max_string_depth - 1,
+            );
+        } else {
+            let leaf_string_one = self.dfs(
+                &mut |child: &TreeNode| predicate(string_one_idx, child),
+                deepest_internal,
+            );
+
+            let leaf_string_two = self.dfs(
+                &mut |child: &TreeNode| predicate(string_two_idx, child),
+                deepest_internal,
+            );
+
+            match (leaf_string_one, leaf_string_two) {
+                (Some(leaf_one), Some(leaf_two)) => {
+                    println!(
+                        "Found leaves: {} ({}), {} ({})",
+                        leaf_one.id, leaf_one.string_depth, leaf_two.id, leaf_two.string_depth
+                    );
+                    lcs = (
+                        self.offset_leaf(leaf_one.id, leaf_one.string_idx).unwrap(),
+                        self.offset_leaf(leaf_two.id, leaf_two.string_idx).unwrap(),
+                        max_string_depth,
+                    );
+                }
+                _ => (),
+            }
+        }
+
+        return lcs;
     }
 
     /**
@@ -253,9 +384,13 @@ impl SuffixTree {
      */
     pub fn display_string_depth(&self, f: &mut std::fmt::Formatter<'_>) {
         writeln!(f, "String Depth: depth (node ID)").unwrap();
-        self.dfs(&mut |node: &TreeNode| {
-            write!(f, "{} (n{}), ", node.string_depth, node.id).unwrap();
-        });
+        self.dfs(
+            &mut |node: &TreeNode| {
+                write!(f, "{} (n{}), ", node.string_depth, node.id).unwrap();
+                return false;
+            },
+            0,
+        );
         writeln!(f, "\n").unwrap();
     }
 
@@ -298,16 +433,26 @@ impl SuffixTree {
      * Performs a Depth First Search (DFS) on the suffix tree
      * executing a callback on each node
      */
-    pub fn dfs(&self, callback: &mut dyn FnMut(&TreeNode)) {
-        let mut stack = vec![self.nodes[0].as_ref().expect("Root node not found")];
+    pub fn dfs(
+        &self,
+        callback: &mut dyn FnMut(&TreeNode) -> bool,
+        start_node: usize,
+    ) -> Option<&TreeNode> {
+        let mut stack = vec![self.nodes[start_node]
+            .as_ref()
+            .expect("Start node not found")];
 
         while let Some(node) = stack.pop() {
             //debug!("DFS: {}", node.id);
-            callback(node);
+            if callback(node) {
+                return Some(node);
+            }
             for child in node.children.iter().rev().flatten() {
                 stack.push(self.nodes[*child].as_ref().expect("Child node not found"));
             }
         }
+
+        return None;
     }
 
     /**
@@ -343,6 +488,7 @@ impl SuffixTree {
         let parent = node_ref
             .parent
             .expect("Node has no parent - cannot break edge");
+
         let new_internal_node = self.create_internal_node(
             parent,
             node,
@@ -350,6 +496,13 @@ impl SuffixTree {
             break_idx,
             internal_string_idx,
         );
+
+        // set the associated strings for the new internal node
+        self.nodes[new_internal_node]
+            .as_mut()
+            .expect("New internal node not found")
+            .associated_strings
+            .set(internal_string_idx, true);
 
         if create_leaf {
             // add the leaf on the new internal node
@@ -372,10 +525,10 @@ impl SuffixTree {
     ) -> usize {
         let parent_ref = self.nodes[parent].as_ref().expect("Parent node not found");
 
-        let internal_id = self.last_internal_id;
+        let internal_id = self.next_internal_id;
 
         let string_depth = parent_ref.string_depth + (edge_end - edge_start);
-        let internal_node = TreeNode {
+        let mut internal_node = TreeNode {
             id: internal_id,
             string_depth: string_depth,
             parent: Some(parent),
@@ -385,9 +538,17 @@ impl SuffixTree {
             // suffix link to last internal node
             suffix_link: None,
             string_idx: string_idx,
+            associated_strings: self.nodes[original_node]
+                .as_ref()
+                .unwrap()
+                .associated_strings
+                .clone(),
         };
 
-        self.last_internal_id += 1;
+        // set the associated strings for the new leaf node
+        internal_node.associated_strings.set(string_idx, true);
+
+        self.next_internal_id += 1;
 
         // add new internal node as a child of the parent of the original node
         self.add_child(parent, internal_node, string_idx);
@@ -415,7 +576,7 @@ impl SuffixTree {
         let parent_ref = self.nodes[parent].as_ref().expect("Parent node not found");
         let leaf_id: usize = self.next_leaf_id;
 
-        let leaf = TreeNode {
+        let mut leaf = TreeNode {
             id: leaf_id,
             string_depth: parent_ref.string_depth + (edge_end - edge_start),
             parent: Some(parent),
@@ -424,7 +585,11 @@ impl SuffixTree {
             edge_end: edge_end,
             suffix_link: None,
             string_idx: string_idx,
+            associated_strings: bitvec![u32, Lsb0; 0; 32],
         };
+
+        // set the associated strings for the new leaf node
+        leaf.associated_strings.set(string_idx, true);
 
         self.next_leaf_id += 1;
 
@@ -463,7 +628,7 @@ impl SuffixTree {
 
         let mut remaining_beta = beta_length;
         while remaining_beta > 0 {
-            let current_node_ref = self.nodes[current_node_idx].as_ref().unwrap();
+            let current_node_ref = self.nodes[current_node_idx].as_mut().unwrap();
             debug!("[NodeHops] Current node: {}", current_node_ref.id);
 
             let c = self.strings[beta_string_idx].as_bytes()[beta_end - remaining_beta] as char;
@@ -518,7 +683,7 @@ impl SuffixTree {
                             0,
                             false,
                             child_node_ref.string_idx,
-                            0, // unused
+                            beta_string_idx,
                         );
                         break;
                     }
@@ -555,42 +720,46 @@ impl SuffixTree {
         let mut longest_repeat_start = 0;
         let mut longest_repeat = false;
 
-        self.dfs(&mut |node: &TreeNode| {
-            // if it's a leaf
-            if node.id > 0
-                && node.id < self.strings[string_idx].len() + 1
-                && idx < self.strings[string_idx].len()
-            {
-                // if we previously found a longest repeat (internal node)
-                // set the longest repeat start to the node id
-                if longest_repeat {
-                    longest_repeat_start = node.id;
-                    longest_repeat = false;
-                }
+        self.dfs(
+            &mut |node: &TreeNode| {
+                // if it's a leaf
+                if node.id > 0
+                    && node.id < self.strings[string_idx].len() + 1
+                    && idx < self.strings[string_idx].len()
+                {
+                    // if we previously found a longest repeat (internal node)
+                    // set the longest repeat start to the node id
+                    if longest_repeat {
+                        longest_repeat_start = node.id;
+                        longest_repeat = false;
+                    }
 
-                num_leaves += 1;
-                if node.id == 1 {
-                    bwt[idx] = '$';
+                    num_leaves += 1;
+                    if node.id == 1 {
+                        bwt[idx] = '$';
+                    } else {
+                        bwt[idx] = self.strings[string_idx].as_bytes()[node.id - 2] as char;
+                    }
+                    idx += 1;
                 } else {
-                    bwt[idx] = self.strings[string_idx].as_bytes()[node.id - 2] as char;
-                }
-                idx += 1;
-            } else {
-                // don't count the root node
-                if node.id == 0 {
-                    return;
-                }
+                    // don't count the root node
+                    if node.id == 0 {
+                        return false;
+                    }
 
-                num_internal += 1;
-                string_depth_sum += node.string_depth;
-                if node.string_depth > max_string_depth {
-                    // this is also the longest matching repeat
-                    longest_repeat_len = node.string_depth;
-                    longest_repeat = true;
-                    max_string_depth = node.string_depth;
+                    num_internal += 1;
+                    string_depth_sum += node.string_depth;
+                    if node.string_depth > max_string_depth {
+                        // this is also the longest matching repeat
+                        longest_repeat_len = node.string_depth;
+                        longest_repeat = true;
+                        max_string_depth = node.string_depth;
+                    }
                 }
-            }
-        });
+                return false;
+            },
+            0,
+        );
 
         self.stats.longest_repeat_len = longest_repeat_len;
         self.stats.longest_repeat_start = longest_repeat_start;
@@ -609,7 +778,7 @@ impl SuffixTree {
      */
     pub fn find_path(&mut self, suffix_idx: usize, start_node: usize, string_idx: usize) {
         let mut current_node = self.nodes[start_node]
-            .as_ref()
+            .as_mut()
             .expect(format!("Start node {} not found", start_node).as_str());
         let suffix_len = self.strings[string_idx].len() - suffix_idx;
 
@@ -625,6 +794,9 @@ impl SuffixTree {
         );
 
         loop {
+            let current_node_id = current_node.id;
+            let current_node_string_idx = current_node.string_idx;
+
             // walk down label on current node's edge
             for label_idx in current_node.edge_start..current_node.edge_end {
                 if suffix_sub_idx > suffix_len {
@@ -644,14 +816,14 @@ impl SuffixTree {
 
                 if suffix_char != c {
                     self.break_edge(
-                        current_node.id,
+                        current_node_id,
                         label_idx,
                         // leaf label is the position we're at in the suffix
                         // and the index of the end of the original string (since it's a suffix and we're at the end)
                         suffix_idx + suffix_sub_idx,
                         self.strings[string_idx].len(),
                         true,
-                        current_node.string_idx,
+                        current_node_string_idx,
                         string_idx,
                     );
                     return;
@@ -659,6 +831,9 @@ impl SuffixTree {
 
                 suffix_sub_idx += 1;
             }
+
+            // associate the string with the current node
+            current_node.associated_strings.set(string_idx, true);
 
             debug!(
                 "[FindPath] Done with edge of current node {}",
@@ -700,14 +875,14 @@ impl SuffixTree {
                         c, child_idx
                     );
                     current_node = self.nodes[n]
-                        .as_ref()
+                        .as_mut()
                         .expect("Child node not found when walking");
                 }
                 // there's no child node, so we need to add a new leaf
                 None => {
                     debug!("[FindPath] No child node found, adding new leaf");
                     self.create_leaf(
-                        current_node.id,
+                        current_node_id,
                         suffix_idx + suffix_sub_idx,
                         self.strings[string_idx].len(),
                         string_idx,
@@ -862,6 +1037,9 @@ mod test {
         tree.insert_string("ABANANA", true);
         tree.compute_stats(0);
 
+        let (s1, s2, length) = tree.get_lcs(0, 1);
+        println!("LCS: S1 -> {}, S2 -> {}, Length -> {}", s1, s2, length);
+
         println!("{}", tree);
     }
 
@@ -878,6 +1056,9 @@ mod test {
         tree.insert_string("BANANAB", true);
         tree.insert_string("ABABABA", true);
         tree.compute_stats(0);
+
+        let (s1, s2, length) = tree.get_lcs(1, 2);
+        println!("LCS: S1 -> {}, S2 -> {}, Length -> {}", s1, s2, length);
 
         println!("{}", tree);
     }

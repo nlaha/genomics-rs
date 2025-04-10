@@ -59,37 +59,44 @@ impl Display for SuffixTree {
 impl SuffixTree {
     pub fn write_graphviz(&self) -> String {
         let mut graph = Graph::<String, String>::new();
-        self.dfs(&mut |node: &TreeNode| {
-            let node_idx = graph.add_node(node.id.to_string());
+        self.dfs(
+            &mut |node: &TreeNode| {
+                let node_idx = graph.add_node(node.id.to_string());
 
-            match node.parent {
-                Some(parent) => {
-                    let parent_ref = self.nodes[parent].as_ref().unwrap();
-                    let parent_idx = graph
-                        .node_indices()
-                        .find(|idx| {
-                            let node: &String = graph.node_weight(*idx).unwrap();
-                            node == &parent_ref.id.to_string()
-                        })
-                        .unwrap();
-                    graph.add_edge(
-                        parent_idx,
-                        node_idx,
-                        self.strings[node.string_idx][node.edge_start..node.edge_end].to_string()
-                            + format!(" [{}]", node.string_idx).as_str(),
-                    );
+                match node.parent {
+                    Some(parent) => {
+                        let parent_ref = self.nodes[parent as usize].as_ref().unwrap();
+                        let parent_idx = graph
+                            .node_indices()
+                            .find(|idx| {
+                                let node: &String = graph.node_weight(*idx).unwrap();
+                                node == &parent_ref.id.to_string()
+                            })
+                            .unwrap();
+                        graph.add_edge(
+                            parent_idx,
+                            node_idx,
+                            self.strings[node.string_idx as usize]
+                                [node.edge_start as usize..node.edge_end as usize]
+                                .to_string()
+                                + format!(" [{}]", node.string_idx).as_str(),
+                        );
+                    }
+                    None => {
+                        // root node case
+                    }
                 }
-                None => {
-                    // root node case
-                }
-            }
-        });
+
+                return false;
+            },
+            0,
+        );
 
         // iterate through nodes and create suffix links
         for c_node in self.nodes.iter() {
             if let Some(c_node) = c_node {
                 if let Some(suffix_link) = c_node.suffix_link {
-                    let suffix_link_ref = self.nodes[suffix_link].as_ref().unwrap();
+                    let suffix_link_ref = self.nodes[suffix_link as usize].as_ref().unwrap();
                     let suffix_link_idx = graph
                         .node_indices()
                         .find(|idx| {
