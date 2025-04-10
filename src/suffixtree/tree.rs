@@ -266,10 +266,6 @@ impl SuffixTree {
 
             match (leaf_string_one, leaf_string_two) {
                 (Some(leaf_one), Some(leaf_two)) => {
-                    println!(
-                        "Found leaves: {} ({}), {} ({})",
-                        leaf_one.id, leaf_one.string_depth, leaf_two.id, leaf_two.string_depth
-                    );
                     lcs = (
                         self.offset_leaf(leaf_one.id, leaf_one.string_idx).unwrap(),
                         self.offset_leaf(leaf_two.id, leaf_two.string_idx).unwrap(),
