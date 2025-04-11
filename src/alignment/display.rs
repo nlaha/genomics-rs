@@ -128,9 +128,9 @@ impl Display for AlignedSequences {
 
 /// Prints the sequence table with alignment path for visualization
 /// * `aligned_sequences` - the aligned sequences
-pub fn print_sequence_table(
+pub fn print_alignment_table(
     aligned_sequences: &AlignedSequences,
-    sequence_table: &ndarray::Array2<super::algo::AlignmentCell>,
+    alignment_table: &ndarray::Array2<super::algo::AlignmentCell>,
 ) {
     let s1_len = aligned_sequences.s1.sequence.len();
     let s2_len = aligned_sequences.s2.sequence.len();
@@ -178,16 +178,16 @@ pub fn print_sequence_table(
 
     // print scores
     println!("Delete Scores");
-    print_scores_table(&aligned_sequences, &sequence_table, "delete");
+    print_scores_table(&aligned_sequences, &alignment_table, "delete");
     println!("Insert Scores");
-    print_scores_table(&aligned_sequences, &sequence_table, "insert");
+    print_scores_table(&aligned_sequences, &alignment_table, "insert");
     println!("Sub Scores");
-    print_scores_table(&aligned_sequences, &sequence_table, "sub");
+    print_scores_table(&aligned_sequences, &alignment_table, "sub");
 }
 
 pub fn print_scores_table(
     aligned_sequences: &AlignedSequences,
-    sequence_table: &ndarray::Array2<super::algo::AlignmentCell>,
+    alignment_table: &ndarray::Array2<super::algo::AlignmentCell>,
     score_to_print: &str,
 ) {
     let s1_len = aligned_sequences.s1.sequence.len();
@@ -204,9 +204,9 @@ pub fn print_scores_table(
         print!("{:?}\t", i);
         for j in 0..s2_len + 1 {
             let val = match score_to_print {
-                "delete" => sequence_table[[i, j]].delete_score,
-                "insert" => sequence_table[[i, j]].insert_score,
-                "sub" => sequence_table[[i, j]].sub_score,
+                "delete" => alignment_table[[i, j]].delete_score,
+                "insert" => alignment_table[[i, j]].insert_score,
+                "sub" => alignment_table[[i, j]].sub_score,
                 _ => panic!("Invalid score type"),
             };
             if val <= -9223372036854775700 {

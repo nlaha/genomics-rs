@@ -6,7 +6,11 @@ use config::Config;
 use log::info;
 use pretty_env_logger;
 use sequence::{SequenceContainer, SequenceOperations};
-use std::{env, fs::OpenOptions, io::Write};
+use std::{
+    env,
+    fs::{self, OpenOptions},
+    io::{self, Write},
+};
 
 mod alignment;
 mod config;
@@ -19,16 +23,36 @@ enum Command {
         /// Whether to perform local or global alignment
         #[arg(short, long, default_value = "local")]
         alignment_type: String,
+
+        /// Path to the FASTA file containing two sequences to align
+        #[arg(short, long)]
+        fasta_path: String,
     },
     SuffixTree {
+        /// Path to the alphabet file
         #[arg(short, long)]
         alphabet_file: String,
 
+        /// Whether to compute suffix links
         #[arg(long, default_value_t = false)]
         suffix_links: bool,
 
+        /// Whether to compute stats
         #[arg(long, default_value_t = false)]
         stats: bool,
+
+        /// Path to the FASTA file containing two sequences to align
+        #[arg(short, long)]
+        fasta_path: String,
+    },
+    Compare {
+        /// Path to the alphabet file
+        #[arg(short, long)]
+        alphabet_file: String,
+
+        /// Path to directory containing FASTA files
+        #[arg(short, long)]
+        fasta_dir: String,
     },
 }
 
@@ -39,16 +63,12 @@ struct CliArgs {
     #[clap(subcommand)]
     mode: Command,
 
-    /// Path to the FASTA file containing two sequences to align
-    #[arg(short, long)]
-    fasta_path: String,
-
     /// Path to the config file
     #[arg(short, long, default_value = "config.toml")]
     config_path: String,
 }
 
-fn main() {
+fn main() -> io::Result<()> {
     // parse cli args
     let args = CliArgs::parse();
 
@@ -83,14 +103,16 @@ fn main() {
         sequences: Vec::new(),
     };
 
-    info!("Loading sequences from {}", args.fasta_path);
-
-    sequence_container.from_fasta(args.fasta_path.as_str());
-
     // Extract alignment_type from the Command variant
     match &args.mode {
-        Command::Align { alignment_type } => {
+        Command::Align {
+            alignment_type,
+            fasta_path,
+        } => {
             info!("MODE: {}", "Alignment".bright_yellow().bold());
+
+            info!("Loading sequences from {}", fasta_path);
+            sequence_container.from_fasta(fasta_path.as_str());
 
             // log config
             info!("Using the following values for scoring:");
@@ -102,11 +124,11 @@ fn main() {
             info!("Alignment Type: {}", alignment_type);
 
             info!("{}", "Alignment".bright_green());
-            let alignment = alignment::algo::align_sequences(
-                &sequence_container,
-                &config.scores,
-                alignment_type == "local" || alignment_type == "1",
-            );
+            let is_local = alignment_type == "local" || alignment_type == "1";
+            let alignment_table =
+                alignment::algo::alignment_table(&sequence_container, &config.scores, is_local);
+            let alignment =
+                alignment::algo::retrace(&sequence_container, alignment_table, is_local);
 
             info!("{}", alignment);
         }
@@ -114,9 +136,13 @@ fn main() {
             alphabet_file,
             suffix_links,
             stats,
+            fasta_path,
         } => {
             info!("MODE: {}", "Suffix Tree".bright_green().bold());
             info!("Suffix links: {}", suffix_links);
+
+            info!("Loading sequences from {}", fasta_path);
+            sequence_container.from_fasta(fasta_path.as_str());
 
             let mut suffix_tree = suffixtree::tree::SuffixTree::new(
                 alphabet_file,
@@ -131,7 +157,7 @@ fn main() {
                 // delete bwt file if it exists
                 let bwt_path = format!(
                     "BWT_out/{}_bwt.txt",
-                    args.fasta_path
+                    fasta_path
                         .split("/")
                         .last()
                         .unwrap()
@@ -164,5 +190,50 @@ fn main() {
                 info!("{}", suffix_tree);
             }
         }
+        Command::Compare {
+            alphabet_file,
+            fasta_dir,
+        } => {
+            info!("MODE: {}", "Compare".bright_green().bold());
+            info!("Alphabet file: {}", alphabet_file);
+
+            // get all .fasta files in the fasta_dir
+            // and load them into the sequence container
+            for file in fs::read_dir(fasta_dir)? {
+                let file = file?;
+                if file.path().extension().unwrap() != "fasta" {
+                    continue;
+                }
+                sequence_container.from_fasta(file.path().to_str().unwrap());
+            }
+
+            let mut suffix_tree = suffixtree::tree::SuffixTree::new(
+                alphabet_file,
+                sequence_container.sequences[0].sequence.len(),
+            );
+
+            for sequence in sequence_container.sequences.iter() {
+                suffix_tree.insert_string(&sequence.sequence, true);
+            }
+
+            // get lcs for each pair of sequences in the tree
+            for i in 0..sequence_container.sequences.len() {
+                for j in i + 1..sequence_container.sequences.len() {
+                    let (start_i, start_j, length) = suffix_tree.get_lcs(i, j);
+                    // get the prefixes from i and j
+                    let prefix_i = &sequence_container.sequences[i].sequence[..start_i];
+                    let prefix_j = &sequence_container.sequences[j].sequence[..start_j];
+
+                    let prefix_container = SequenceContainer::from_prefixes(prefix_i, prefix_j);
+
+                    let alignment_table =
+                        alignment::algo::alignment_table(&prefix_container, &config.scores, false);
+                }
+            }
+
+            info!("{}", suffix_tree);
+        }
     };
+
+    Ok(())
 }

@@ -2,7 +2,6 @@ use std::{env, fmt::Display};
 
 use log::warn;
 use petgraph::{dot::Dot, Graph};
-use regex::Regex;
 
 use super::tree::{SuffixTree, TreeNode, TreeStats};
 
@@ -76,10 +75,10 @@ impl SuffixTree {
                         graph.add_edge(
                             parent_idx,
                             node_idx,
-                            self.strings[node.string_idx as usize]
+                            self.strings[node.source_string as usize]
                                 [node.edge_start as usize..node.edge_end as usize]
                                 .to_string()
-                                + format!(" [{}]", node.string_idx).as_str(),
+                                + format!(" [{}]", node.source_string).as_str(),
                         );
                     }
                     None => {

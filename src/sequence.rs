@@ -35,10 +35,26 @@ pub struct SequenceContainer {
 
 pub trait SequenceOperations {
     fn from_fasta(&mut self, filepath: &str);
+    fn from_prefixes(prefix1: &str, prefix2: &str) -> SequenceContainer;
     fn is_match(&self, i: usize, j: usize) -> bool;
 }
 
 impl SequenceOperations for SequenceContainer {
+    fn from_prefixes(prefix1: &str, prefix2: &str) -> SequenceContainer {
+        return SequenceContainer {
+            sequences: vec![
+                Sequence {
+                    name: String::new(),
+                    sequence: prefix1.to_string(),
+                },
+                Sequence {
+                    name: String::new(),
+                    sequence: prefix2.to_string(),
+                },
+            ],
+        };
+    }
+
     /// Load one or more sequences from a FASTA file.
     /// * `filepath` - The path to the FASTA file.
     fn from_fasta(&mut self, filepath: &str) {

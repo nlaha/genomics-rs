@@ -9,7 +9,7 @@ use num::Zero;
 use spinoff::{spinners, Color, Spinner};
 
 use crate::{
-    alignment::display::print_sequence_table,
+    alignment::display::print_alignment_table,
     config::Scores,
     sequence::{Sequence, SequenceContainer, SequenceOperations},
 };
@@ -108,11 +108,11 @@ pub struct AlignedSequences {
 /// Perform global alignment of two sequences
 /// * `sequence_container` - container struct containing two sequences
 /// * `scores` - scoring parameters
-pub fn align_sequences(
+pub fn alignment_table(
     sequence_container: &SequenceContainer,
     scores: &Scores,
     is_local: bool,
-) -> AlignedSequences {
+) -> Array2<AlignmentCell> {
     // if more than two sequences are found
     if sequence_container.sequences.len() > 2 {
         warn!("More than two sequences found. Only the first two will be used.");
@@ -125,16 +125,16 @@ pub fn align_sequences(
     let s2_len = sequence_container.sequences[1].sequence.len();
 
     // create 2D array to store dynamic programming results
-    let mut sequence_table: Array2<AlignmentCell> = Array2::zeros((s1_len + 1, s2_len + 1).f());
+    let mut alignment_table: Array2<AlignmentCell> = Array2::zeros((s1_len + 1, s2_len + 1).f());
 
     // log
-    info!("Sequence table shape: {:?}", sequence_table.shape());
+    info!("Sequence table shape: {:?}", alignment_table.shape());
     info!(
         "Sequence table size (KB): {}",
-        sequence_table.len() * std::mem::size_of::<AlignmentCell>() / 1024
+        alignment_table.len() * std::mem::size_of::<AlignmentCell>() / 1024
     );
 
-    let mut sequence_table_spinner = Spinner::new(
+    let mut alignment_table_spinner = Spinner::new(
         spinners::Dots,
         "Computing sequence table...",
         Color::Magenta,
@@ -146,7 +146,7 @@ pub fn align_sequences(
     // iterate through alignment table and fill in scores
     for i in 0..s1_len + 1 {
         for j in 0..s2_len + 1 {
-            sequence_table[[i, j]] = match (i, j) {
+            alignment_table[[i, j]] = match (i, j) {
                 // origin
                 (0, 0) => AlignmentCell {
                     insert_score: 0,
@@ -167,9 +167,9 @@ pub fn align_sequences(
                 },
                 (i, j) => {
                     // recurrence relationships for S, D and I
-                    let top_left = sequence_table[[i - 1, j - 1]];
-                    let left = sequence_table[[i - 1, j]];
-                    let top = sequence_table[[i, j - 1]];
+                    let top_left = alignment_table[[i - 1, j - 1]];
+                    let left = alignment_table[[i - 1, j]];
+                    let top = alignment_table[[i, j - 1]];
 
                     // build alignment cell struct
                     AlignmentCell {
@@ -199,24 +199,22 @@ pub fn align_sequences(
 
     let end_table_init: std::time::Instant = std::time::Instant::now();
 
-    sequence_table_spinner.success("Sequence table computed");
+    alignment_table_spinner.success("Sequence table computed");
 
     info!(
         "Table initialization complete, time taken: {}us",
         (end_table_init - start_table_init).as_micros()
     );
 
-    let aligned_sequences = retrace(sequence_container, sequence_table, is_local);
-
-    return aligned_sequences;
+    return alignment_table;
 }
 
 /// Performs a retrace of the optimal alignment path from the sequence table
 /// * `sequence_container` - container struct containing two sequences
-/// * `sequence_table` - the dynamic programming table
-fn retrace(
+/// * `alignment_table` - the dynamic programming table
+pub fn retrace(
     sequence_container: &SequenceContainer,
-    sequence_table: ndarray::Array2<AlignmentCell>,
+    alignment_table: ndarray::Array2<AlignmentCell>,
     is_local: bool,
 ) -> AlignedSequences {
     let mut retrace_spinner = Spinner::new(
@@ -238,7 +236,7 @@ fn retrace(
         false => (s1_len, s2_len),
         // get coordinates of the highest scoring cell
         true => {
-            sequence_table
+            alignment_table
                 // get indexed iter that gives us (x,y), cell
                 .indexed_iter()
                 // max by lambda that compares the score of the cell
@@ -258,7 +256,7 @@ fn retrace(
         s1: sequence_container.sequences[0].clone(),
         s2: sequence_container.sequences[1].clone(),
         alignment: Vec::new(),
-        score: sequence_table[[i, j]].score_max(0, 0, 0, is_local),
+        score: alignment_table[[i, j]].score_max(0, 0, 0, is_local),
         matches: 0,
         mismatches: 0,
         gap_extensions: 0,
@@ -267,7 +265,7 @@ fn retrace(
 
     let mut last_choice = AlignmentChoice::Match;
     loop {
-        let cell = sequence_table[[i, j]];
+        let cell = alignment_table[[i, j]];
 
         // get the score of the current cell
         let max = cell.score_max(0, 0, 0, is_local);
@@ -365,7 +363,7 @@ fn retrace(
         aligned_sequences.alignment.len()
     );
 
-    print_sequence_table(&aligned_sequences, &sequence_table);
+    print_alignment_table(&aligned_sequences, &alignment_table);
 
     aligned_sequences
 }

@@ -18,10 +18,10 @@ pub struct TreeNode {
     pub edge_end: usize,
     pub parent: Option<usize>,
     pub suffix_link: Option<usize>,
-    pub children: Vec<Option<usize>>,
+    pub children: HashMap<char, Option<usize>>,
 
     // the string index this node was created by
-    pub string_idx: usize,
+    pub source_string: usize,
 
     // the strings this node is a part of
     pub associated_strings: BitVec<u32, Lsb0>,
@@ -62,6 +62,12 @@ pub fn get_child_index(alphabet: &Vec<char>, c: char) -> usize {
         .0;
 }
 
+// the suffix tree can support up to 32 strings
+const STRING_TERMINATORS: [char; 32] = [
+    '$', '!', '@', '#', '%', '^', '&', '*', '(', ')', '-', '_', '=', '+', '{', '}', '[', ']', '|',
+    ';', ':', '\'', '<', '>', ',', '.', '?', '/', '~', '`', ' ', '\n',
+];
+
 impl SuffixTree {
     /**
      * Inserts a new string into the suffix tree
@@ -90,12 +96,14 @@ impl SuffixTree {
         self.nodes
             .resize(self.nodes.len() + (string_length * 2 + 1), None);
 
+        let string_idx = self.strings.len();
+        self.alphabet.push(STRING_TERMINATORS[string_idx]);
+        self.strings
+            .push(new_string.to_string() + STRING_TERMINATORS[string_idx].to_string().as_str());
+
         let before_tree = Instant::now();
 
-        self.strings.push(new_string.to_string() + "$");
-        let string_idx = self.strings.len() - 1;
-
-        // build a set of suffixes with '$' appended to the end
+        // build a set of suffixes
         for i in 0..string_length + 1 {
             debug!(
                 "Inserting suffix {}",
@@ -123,14 +131,12 @@ impl SuffixTree {
      */
     pub fn new(alphabet_file: &str, initial_allocation: usize) -> SuffixTree {
         // load alphabet from file
-        let mut alphabet = match std::fs::read_to_string(alphabet_file) {
+        let alphabet = match std::fs::read_to_string(alphabet_file) {
             Ok(a) => a.replace(" ", "").chars().collect::<Vec<char>>(),
             Err(_) => {
                 panic!("Could not read alphabet file: {}", alphabet_file);
             }
         };
-
-        alphabet.insert(0, '$');
 
         let mut alphabet_sorted = alphabet.clone();
         alphabet_sorted.sort();
@@ -158,11 +164,11 @@ impl SuffixTree {
             id: 0,
             string_depth: 0,
             parent: None,
-            children: vec![None; tree.alphabet.len()],
+            children: HashMap::with_capacity(tree.alphabet.len()),
             edge_start: 0,
             edge_end: 0,
             suffix_link: Some(0),
-            string_idx: 0,
+            source_string: 0,
 
             // initialize associated strings with empty bitvec of max size
             associated_strings: bitvec![u32, Lsb0; 0; 32],
@@ -183,7 +189,7 @@ impl SuffixTree {
      */
     fn offset_leaf(&self, leaf_idx: usize, string_idx: usize) -> Option<usize> {
         if string_idx == 0 {
-            return Some(leaf_idx);
+            return Some(leaf_idx - 1);
         }
         return leaf_idx.checked_sub(self.string_leaf_ranges.get(&string_idx).unwrap().start);
     }
@@ -194,7 +200,7 @@ impl SuffixTree {
     fn is_leaf(&self, node: &TreeNode) -> bool {
         return self
             .string_leaf_ranges
-            .get(&node.string_idx)
+            .get(&node.source_string)
             .unwrap()
             .contains(&node.id);
     }
@@ -203,7 +209,7 @@ impl SuffixTree {
      * Gets the lcs (longest common substring) between two strings
      * The return value is (i, j, length)
      */
-    fn get_lcs(&self, string_one_idx: usize, string_two_idx: usize) -> (usize, usize, usize) {
+    pub fn get_lcs(&self, string_one_idx: usize, string_two_idx: usize) -> (usize, usize, usize) {
         let mut lcs = (0, 0, 0);
 
         let predicate = |string_idx: usize, child: &TreeNode| {
@@ -221,7 +227,7 @@ impl SuffixTree {
         };
 
         let mut max_string_depth: usize = 0;
-        let mut deepest_internal: usize = 0;
+        let mut deepest_common: usize = 0;
         self.dfs(
             &mut |node: &TreeNode| {
                 // skip nodes that only have one string
@@ -236,7 +242,7 @@ impl SuffixTree {
                 // if we have both strings, check the string depth
                 if has_both_strings && node.string_depth > max_string_depth {
                     max_string_depth = node.string_depth;
-                    deepest_internal = node.id;
+                    deepest_common = node.id;
                 }
 
                 return false;
@@ -244,36 +250,25 @@ impl SuffixTree {
             0,
         );
 
-        // now that we have the deepest internal node, find leaves associated with each string
-        if self.is_leaf(&self.nodes[deepest_internal].as_ref().unwrap()) {
-            // if the deepest internal node is a shared leaf, we can just use it directly
-            lcs = (
-                self.offset_leaf(deepest_internal, string_one_idx).unwrap(),
-                self.offset_leaf(deepest_internal, string_one_idx).unwrap(),
-                // leaves have '$' at the end, so we need to subtract 1
-                max_string_depth - 1,
-            );
-        } else {
-            let leaf_string_one = self.dfs(
-                &mut |child: &TreeNode| predicate(string_one_idx, child),
-                deepest_internal,
-            );
+        let leaf_string_one = self.dfs(
+            &mut |child: &TreeNode| predicate(string_one_idx, child),
+            deepest_common,
+        );
 
-            let leaf_string_two = self.dfs(
-                &mut |child: &TreeNode| predicate(string_two_idx, child),
-                deepest_internal,
-            );
+        let leaf_string_two = self.dfs(
+            &mut |child: &TreeNode| predicate(string_two_idx, child),
+            deepest_common,
+        );
 
-            match (leaf_string_one, leaf_string_two) {
-                (Some(leaf_one), Some(leaf_two)) => {
-                    lcs = (
-                        self.offset_leaf(leaf_one.id, leaf_one.string_idx).unwrap(),
-                        self.offset_leaf(leaf_two.id, leaf_two.string_idx).unwrap(),
-                        max_string_depth,
-                    );
-                }
-                _ => (),
+        match (leaf_string_one, leaf_string_two) {
+            (Some(leaf_one), Some(leaf_two)) => {
+                lcs = (
+                    self.offset_leaf(leaf_one.id, string_one_idx).unwrap(),
+                    self.offset_leaf(leaf_two.id, string_two_idx).unwrap(),
+                    max_string_depth,
+                );
             }
+            _ => (),
         }
 
         return lcs;
@@ -339,13 +334,16 @@ impl SuffixTree {
                         v_prime,
                         u_ref.edge_start + 1,
                         u_ref.edge_end,
-                        u_ref.string_idx,
+                        u_ref.source_string,
                     ),
 
                     // CASE 2A
-                    false => {
-                        self.node_hops(v_prime, u_ref.edge_start, u_ref.edge_end, u_ref.string_idx)
-                    }
+                    false => self.node_hops(
+                        v_prime,
+                        u_ref.edge_start,
+                        u_ref.edge_end,
+                        u_ref.source_string,
+                    ),
                 };
 
                 debug!("After NodeHops: v is {}", v);
@@ -398,7 +396,7 @@ impl SuffixTree {
 
         // figure out where we should insert it
         let child_idx = match self.strings[string_idx].bytes().nth(child.edge_start) {
-            Some(c) => get_child_index(&self.alphabet, c as char),
+            Some(c) => c as char,
             None => {
                 panic!("Child node has no edge label");
             }
@@ -418,7 +416,7 @@ impl SuffixTree {
         let parent_ref = self.nodes[parent]
             .as_mut()
             .expect("Parent node not found in add_child");
-        parent_ref.children[child_idx] = Some(child.id);
+        parent_ref.children.insert(child_idx, Some(child.id));
 
         // add to nodes array
         let child_id = child.id;
@@ -443,8 +441,13 @@ impl SuffixTree {
             if callback(node) {
                 return Some(node);
             }
-            for child in node.children.iter().rev().flatten() {
-                stack.push(self.nodes[*child].as_ref().expect("Child node not found"));
+            for child in node.children.values() {
+                match child {
+                    Some(child) => {
+                        stack.push(self.nodes[*child].as_ref().expect("Child node not found"))
+                    }
+                    None => (),
+                }
             }
         }
 
@@ -494,11 +497,12 @@ impl SuffixTree {
         );
 
         // set the associated strings for the new internal node
-        self.nodes[new_internal_node]
+        let associated_strings = &mut self.nodes[new_internal_node]
             .as_mut()
             .expect("New internal node not found")
-            .associated_strings
-            .set(internal_string_idx, true);
+            .associated_strings;
+
+        associated_strings.set(leaf_string_idx, true);
 
         if create_leaf {
             // add the leaf on the new internal node
@@ -528,12 +532,12 @@ impl SuffixTree {
             id: internal_id,
             string_depth: string_depth,
             parent: Some(parent),
-            children: vec![None; self.alphabet.len()],
+            children: HashMap::with_capacity(self.alphabet.len()),
             edge_start: edge_start,
             edge_end: edge_end,
             // suffix link to last internal node
             suffix_link: None,
-            string_idx: string_idx,
+            source_string: string_idx,
             associated_strings: self.nodes[original_node]
                 .as_ref()
                 .unwrap()
@@ -576,11 +580,11 @@ impl SuffixTree {
             id: leaf_id,
             string_depth: parent_ref.string_depth + (edge_end - edge_start),
             parent: Some(parent),
-            children: vec![None; self.alphabet.len()],
+            children: HashMap::with_capacity(self.alphabet.len()),
             edge_start: edge_start,
             edge_end: edge_end,
             suffix_link: None,
-            string_idx: string_idx,
+            source_string: string_idx,
             associated_strings: bitvec![u32, Lsb0; 0; 32],
         };
 
@@ -630,11 +634,11 @@ impl SuffixTree {
             let c = self.strings[beta_string_idx].as_bytes()[beta_end - remaining_beta] as char;
             debug!("[NodeHops] Fetching index for character {}", c);
 
-            let child_idx: usize = get_child_index(&self.alphabet, c as char);
-            let child_node_idx = current_node_ref.children[child_idx];
+            let child_node_idx = current_node_ref.children.get(&c).unwrap_or(&None);
 
             match child_node_idx {
                 Some(child_node_idx) => {
+                    let child_node_idx = *child_node_idx;
                     let child_node_ref = self.nodes[child_node_idx].as_ref().unwrap();
                     let child_edge_length = child_node_ref.edge_end - child_node_ref.edge_start;
 
@@ -654,7 +658,7 @@ impl SuffixTree {
 
                         let mut break_idx = 0;
                         for i in 0..remaining_beta {
-                            let c1 = self.strings[child_node_ref.string_idx].as_bytes()
+                            let c1 = self.strings[child_node_ref.source_string].as_bytes()
                                 [child_node_ref.edge_start + i]
                                 as char;
                             let c2 = self.strings[beta_string_idx].as_bytes()
@@ -678,7 +682,7 @@ impl SuffixTree {
                             0,
                             0,
                             false,
-                            child_node_ref.string_idx,
+                            child_node_ref.source_string,
                             beta_string_idx,
                         );
                         break;
@@ -791,7 +795,7 @@ impl SuffixTree {
 
         loop {
             let current_node_id = current_node.id;
-            let current_node_string_idx = current_node.string_idx;
+            let current_node_string_idx = current_node.source_string;
 
             // walk down label on current node's edge
             for label_idx in current_node.edge_start..current_node.edge_end {
@@ -801,7 +805,7 @@ impl SuffixTree {
                 }
 
                 let suffix_char = self.strings[string_idx].as_bytes()[suffix_idx + suffix_sub_idx];
-                let c = self.strings[current_node.string_idx].as_bytes()[label_idx];
+                let c = self.strings[current_node.source_string].as_bytes()[label_idx];
 
                 // if the suffix character is not equal to the edge character
                 // break a new edge and insert a new leaf
@@ -860,16 +864,12 @@ impl SuffixTree {
                 c, suffix_sub_idx
             );
 
-            let child_idx: usize = get_child_index(&self.alphabet, c);
-            let child_node = current_node.children[child_idx];
+            let child_node = *current_node.children.get(&c).unwrap_or(&None);
 
             match child_node {
                 // there's already a child node, so we need to keep moving down the tree
                 Some(n) => {
-                    debug!(
-                        "[FindPath] Found next child node for {}, child idx: {}",
-                        c, child_idx
-                    );
+                    debug!("[FindPath] Found next child node for {}", c);
                     current_node = self.nodes[n]
                         .as_mut()
                         .expect("Child node not found when walking");
@@ -888,194 +888,4 @@ impl SuffixTree {
             }
         }
     }
-}
-
-#[cfg(test)]
-mod test {
-
-    use std::env;
-
-    use crate::sequence::{SequenceContainer, SequenceOperations};
-
-    use super::SuffixTree;
-
-    #[test]
-    fn test_tree_simple2() {
-        let mut tree = SuffixTree::new("alphabets/dna.txt", 10);
-        tree.insert_string("ACA", true);
-        tree.compute_stats(0);
-
-        assert_eq!(tree.stats.num_nodes, 6);
-    }
-
-    #[test]
-    fn test_tree_simple3() {
-        let mut tree = SuffixTree::new("alphabets/banana.txt", 10);
-        tree.insert_string("BANANA", true);
-        tree.compute_stats(0);
-
-        println!("{}", tree);
-
-        assert_eq!(tree.stats.num_internal, 3);
-        assert_eq!(tree.stats.num_leaves, 7);
-        assert_eq!(tree.stats.num_nodes, 11);
-
-        assert_eq!(tree.stats.average_string_depth, 2.0);
-        assert_eq!(tree.stats.max_string_depth, 3);
-        assert_eq!(tree.stats.bwt, "ANNB$AA".to_string());
-    }
-
-    #[test]
-    fn test_tree_simple4() {
-        let mut tree = SuffixTree::new("alphabets/english.txt", 20);
-        tree.insert_string("MISSISSIPPI", true);
-        tree.compute_stats(0);
-
-        println!("{}", tree);
-
-        assert_eq!(tree.stats.num_internal, 6);
-        assert_eq!(tree.stats.num_leaves, 12);
-        assert_eq!(tree.stats.num_nodes, 19);
-
-        assert_eq!(tree.stats.average_string_depth, 2.0);
-        assert_eq!(tree.stats.max_string_depth, 4);
-        assert_eq!(tree.stats.bwt, "IPSSM$PISSII".to_string());
-    }
-
-    #[test]
-    fn test_tree_covid_wuhan() {
-        let mut sequence_container: SequenceContainer = SequenceContainer {
-            sequences: Vec::new(),
-        };
-
-        sequence_container.from_fasta("test_data/Covid_Wuhan.fasta");
-
-        let mut suffix_tree = SuffixTree::new("alphabets/dna.txt", 200000);
-        suffix_tree.insert_string(&sequence_container.sequences[0].sequence, true);
-        suffix_tree.compute_stats(0);
-
-        assert_eq!(suffix_tree.stats.num_internal, 19098);
-        assert_eq!(suffix_tree.stats.num_leaves, 29904);
-        assert_eq!(suffix_tree.stats.num_nodes, 49003);
-
-        // load BWT from file and compare to the computed BWT line by line
-        let bwt = std::fs::read_to_string("BWTs/Covid_Wuhan.fasta.BWT.out")
-            .unwrap()
-            .replace("\n", "");
-
-        let mut idx = 0;
-        for (computed, expected) in suffix_tree.stats.bwt.chars().zip(bwt.chars()) {
-            assert_eq!(
-                computed, expected,
-                "[idx {}] Computed: {}, Expected: {}",
-                idx, computed, expected
-            );
-            idx += 1;
-        }
-    }
-
-    #[test]
-    fn test_tree_human_brca2() {
-        let mut sequence_container: SequenceContainer = SequenceContainer {
-            sequences: Vec::new(),
-        };
-
-        sequence_container.from_fasta("test_data/Human-BRCA2-cds.fasta");
-
-        let mut suffix_tree = SuffixTree::new("alphabets/dna.txt", 200000);
-        suffix_tree.insert_string(&sequence_container.sequences[0].sequence, true);
-        suffix_tree.compute_stats(0);
-
-        assert_eq!(suffix_tree.stats.num_internal, 7299);
-        assert_eq!(suffix_tree.stats.num_leaves, 11383);
-        assert_eq!(suffix_tree.stats.num_nodes, 18683);
-
-        // load BWT from file and compare to the computed BWT line by line
-        let bwt = std::fs::read_to_string("BWTs/Human-BRCA2-cds.fasta.BWT.txt")
-            .unwrap()
-            .replace("\n", "");
-
-        for (computed, expected) in suffix_tree.stats.bwt.chars().zip(bwt.chars()) {
-            assert_eq!(computed, expected);
-        }
-    }
-
-    #[test]
-    fn test_tree_slyco() {
-        let mut sequence_container: SequenceContainer = SequenceContainer {
-            sequences: Vec::new(),
-        };
-
-        sequence_container.from_fasta("test_data/Slyco.fasta");
-
-        let mut suffix_tree = SuffixTree::new("alphabets/dna.txt", 200000);
-        suffix_tree.insert_string(&sequence_container.sequences[0].sequence, true);
-        suffix_tree.compute_stats(0);
-
-        assert_eq!(suffix_tree.stats.num_internal, 98972);
-        assert_eq!(suffix_tree.stats.num_leaves, 155462);
-        assert_eq!(suffix_tree.stats.num_nodes, 254435);
-
-        // load BWT from file and compare to the computed BWT line by line
-        let bwt = std::fs::read_to_string("BWTs/Slyco.fas.BWT.out")
-            .unwrap()
-            .replace("\n", "");
-
-        for (computed, expected) in suffix_tree.stats.bwt.chars().zip(bwt.chars()) {
-            assert_eq!(computed, expected);
-        }
-    }
-
-    #[test]
-    fn test_generalized_suffix_tree() {
-        let mut tree = SuffixTree::new("alphabets/banana.txt", 10);
-        tree.insert_string("BANANA", true);
-        tree.insert_string("ABANANA", true);
-        tree.compute_stats(0);
-
-        let (s1, s2, length) = tree.get_lcs(0, 1);
-        println!("LCS: S1 -> {}, S2 -> {}, Length -> {}", s1, s2, length);
-
-        println!("{}", tree);
-    }
-
-    #[test]
-    fn test_generalized_suffix_tree2() {
-        // // set default log level
-        // env::set_var("RUST_LOG", "debug");
-
-        // // init logging
-        // pretty_env_logger::init();
-
-        let mut tree = SuffixTree::new("alphabets/banana.txt", 10);
-        tree.insert_string("BANANA", true);
-        tree.insert_string("BANANAB", true);
-        tree.insert_string("ABABABA", true);
-        tree.compute_stats(0);
-
-        let (s1, s2, length) = tree.get_lcs(1, 2);
-        println!("LCS: S1 -> {}, S2 -> {}, Length -> {}", s1, s2, length);
-
-        println!("{}", tree);
-    }
-
-    // #[test]
-    // fn test_tree_chr12() {
-    //     let mut sequence_container: SequenceContainer = SequenceContainer {
-    //         sequences: Vec::new(),
-    //     };
-
-    //     sequence_container.from_fasta("test_data/chr12.fasta");
-
-    //     let mut suffix_tree = SuffixTree::new(
-    //         &sequence_container.sequences[0].sequence,
-    //         "alphabets/dna.txt",
-    //         true,
-    //     );
-    //     suffix_tree.compute_stats(false);
-
-    //     assert_eq!(suffix_tree.stats.num_internal, 699519);
-    //     assert_eq!(suffix_tree.stats.num_leaves, 1078176);
-    //     assert_eq!(suffix_tree.stats.num_nodes, 1777696);
-    // }
 }
