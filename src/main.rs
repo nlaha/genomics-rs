@@ -336,6 +336,20 @@ fn main() -> io::Result<()> {
             );
 
             print_similarity_matrix(&similarity_matrix);
+
+            // write similarity matrix to csv
+            let mut out_file = OpenOptions::new()
+                .create(true)
+                .write(true)
+                .open("similarity_matrix.csv")
+                .unwrap();
+
+            for row in similarity_matrix.axis_iter(Axis(0)) {
+                for (score, _len1, _len2) in row.iter() {
+                    write!(out_file, "{},", score)?;
+                }
+                writeln!(out_file)?;
+            }
         }
     };
 
