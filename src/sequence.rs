@@ -73,7 +73,9 @@ impl SequenceOperations for SequenceContainer {
                     if let Some(_) = sequence_name {
                         // trim any whitespace in the line and append to the current sequence
                         let sequence = sequences.last_mut().unwrap();
-                        sequence.sequence.push_str(&line.trim().replace('\n', ""));
+                        sequence
+                            .sequence
+                            .push_str(&line.trim().replace('\n', "").replace("\r\n", ""));
                     } else {
                         warn!("Sequence data found without a header");
                     }
