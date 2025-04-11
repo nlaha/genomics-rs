@@ -9,7 +9,9 @@ use ndarray::parallel::prelude::*;
 use ndarray::Axis;
 use ndarray::{Array2, ShapeBuilder};
 use pretty_env_logger;
+use rayon::iter::ParallelBridge;
 use sequence::{SequenceContainer, SequenceOperations};
+use std::time::Instant;
 use std::{
     env,
     fs::{self, OpenOptions},
@@ -245,72 +247,86 @@ fn main() -> io::Result<()> {
                 .build_global()
                 .unwrap();
 
+            // start timer
+            let before_compare = Instant::now();
+
             // get lcs for each pair of sequences in the tree
             similarity_matrix
                 .axis_iter_mut(Axis(0))
                 .into_par_iter()
                 .enumerate()
                 .for_each(|(j, mut row)| {
-                    for (i, similarity_score) in row.indexed_iter_mut() {
-                        // skip if i > j
-                        if i > j {
-                            continue;
-                        }
-
-                        // get initial LCS on entire sequences
-                        let (start_i, start_j, lcs_length) = suffix_tree.get_lcs(i, j);
-
-                        let get_matches = |s1: &String, s2: &String| {
-                            let mut st = suffixtree::tree::SuffixTree::new(
-                                alphabet_file,
-                                s1.len() + s2.len(),
-                            );
-
-                            st.insert_string(s1, true);
-                            st.insert_string(s2, true);
-
-                            let (st_i, st_j, len) = st.get_lcs(0, 1);
-
-                            return (len, st_i, st_j, s1.clone(), s2.clone());
-                        };
-
-                        // we're going to emulate recursion here
-                        let mut stack: Vec<(usize, usize, usize, String, String)> = Vec::new();
-                        stack.push((
-                            lcs_length,
-                            start_i,
-                            start_j,
-                            sequence_container.sequences[i].sequence.clone(),
-                            sequence_container.sequences[j].sequence.clone(),
-                        ));
-
-                        // basically do a DFS
-                        let mut score = 0;
-                        while !stack.is_empty() {
-                            let (lcs_length, st_i, st_j, s1, s2) = stack.pop().unwrap();
-
-                            let prefix_i = &s1[..st_i].to_string();
-                            let prefix_j = &s2[..st_j].to_string();
-                            let suffix_i = &s1[st_i + lcs_length..].to_string();
-                            let suffix_j = &s2[st_j + lcs_length..].to_string();
-
-                            // push children
-                            if lcs_length > 0 {
-                                stack.push(get_matches(prefix_i, prefix_j));
-                                stack.push(get_matches(suffix_i, suffix_j));
+                    row.indexed_iter_mut()
+                        .par_bridge()
+                        .for_each(|(i, similarity_score)| {
+                            // skip if i > j
+                            if i > j {
+                                return;
                             }
 
-                            // process
-                            score += lcs_length;
-                        }
+                            // get initial LCS on entire sequences
+                            let (start_i, start_j, lcs_length) = suffix_tree.get_lcs(i, j);
 
-                        *similarity_score = (
-                            score,
-                            sequence_container.sequences[i].sequence.len(),
-                            sequence_container.sequences[j].sequence.len(),
-                        );
-                    }
+                            let get_matches = |s1: &String, s2: &String| {
+                                let mut st = suffixtree::tree::SuffixTree::new(
+                                    alphabet_file,
+                                    s1.len() + s2.len(),
+                                );
+
+                                st.insert_string(s1, true);
+                                st.insert_string(s2, true);
+
+                                let (st_i, st_j, len) = st.get_lcs(0, 1);
+
+                                return (len, st_i, st_j, s1.clone(), s2.clone());
+                            };
+
+                            // we're going to emulate recursion here
+                            let mut stack: Vec<(usize, usize, usize, String, String)> = Vec::new();
+                            stack.push((
+                                lcs_length,
+                                start_i,
+                                start_j,
+                                sequence_container.sequences[i].sequence.clone(),
+                                sequence_container.sequences[j].sequence.clone(),
+                            ));
+
+                            // basically do a DFS
+                            let mut score = 0;
+                            while !stack.is_empty() {
+                                let (lcs_length, st_i, st_j, s1, s2) = stack.pop().unwrap();
+
+                                let prefix_i = &s1[..st_i].to_string();
+                                let prefix_j = &s2[..st_j].to_string();
+                                let suffix_i = &s1[st_i + lcs_length..].to_string();
+                                let suffix_j = &s2[st_j + lcs_length..].to_string();
+
+                                // push children
+                                if lcs_length > 0 {
+                                    stack.push(get_matches(prefix_i, prefix_j));
+                                    stack.push(get_matches(suffix_i, suffix_j));
+                                }
+
+                                // process
+                                score += lcs_length;
+                            }
+
+                            *similarity_score = (
+                                score,
+                                sequence_container.sequences[i].sequence.len(),
+                                sequence_container.sequences[j].sequence.len(),
+                            );
+                        });
                 });
+
+            let after_compare = Instant::now();
+
+            let elapsed = after_compare.duration_since(before_compare).as_micros();
+            let elapsed_millis = after_compare.duration_since(before_compare).as_millis();
+            info!(
+                "[FindPath] Time taken to compare: {} us ({} ms)",
+                elapsed, elapsed_millis
+            );
 
             print_similarity_matrix(&similarity_matrix);
         }
