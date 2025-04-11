@@ -1,7 +1,7 @@
 #![feature(portable_simd)]
 
 use clap::{Parser, Subcommand};
-use colored::Colorize;
+use colored::{control, Colorize};
 use comparison::display::print_similarity_matrix;
 use config::Config;
 use log::info;
@@ -64,6 +64,10 @@ enum Command {
         /// Whether to compute suffix links
         #[arg(long, default_value_t = false)]
         suffix_links: bool,
+
+        /// Number of threads to use
+        #[arg(long, default_value_t = 1)]
+        threads: usize,
     },
 }
 
@@ -80,6 +84,10 @@ struct CliArgs {
 }
 
 fn main() -> io::Result<()> {
+    if cfg!(target_os = "windows") {
+        control::set_virtual_terminal(true).unwrap();
+    }
+
     // parse cli args
     let args = CliArgs::parse();
 
@@ -209,6 +217,7 @@ fn main() -> io::Result<()> {
             alphabet_file,
             fasta_dir,
             suffix_links,
+            threads,
         } => {
             info!("MODE: {}", "Compare".bright_green().bold());
             info!("Alphabet file: {}", alphabet_file);
@@ -243,7 +252,7 @@ fn main() -> io::Result<()> {
 
             // configure thread pool for concurrent processing
             rayon::ThreadPoolBuilder::new()
-                .num_threads(24)
+                .num_threads(threads.to_owned())
                 .build_global()
                 .unwrap();
 
