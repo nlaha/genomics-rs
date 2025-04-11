@@ -77,7 +77,7 @@ impl SequenceOperations for SequenceContainer {
                     info!(
                         "Sequence Found (ID: {}): {}",
                         self.sequences.len() + sequences.len(),
-                        name
+                        filepath,
                     );
                     sequences.push(Sequence {
                         name: name.clone(),
@@ -89,7 +89,7 @@ impl SequenceOperations for SequenceContainer {
                     if let Some(_) = sequence_name {
                         // trim any whitespace in the line and append to the current sequence
                         let sequence = sequences.last_mut().unwrap();
-                        sequence.sequence.push_str(&line.trim());
+                        sequence.sequence.push_str(&line.trim().replace('\n', ""));
                     } else {
                         warn!("Sequence data found without a header");
                     }

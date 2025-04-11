@@ -58,6 +58,10 @@ enum Command {
         /// Path to directory containing FASTA files
         #[arg(short, long)]
         fasta_dir: String,
+
+        /// Whether to compute suffix links
+        #[arg(long, default_value_t = false)]
+        suffix_links: bool,
     },
 }
 
@@ -202,9 +206,12 @@ fn main() -> io::Result<()> {
         Command::Compare {
             alphabet_file,
             fasta_dir,
+            suffix_links,
         } => {
             info!("MODE: {}", "Compare".bright_green().bold());
             info!("Alphabet file: {}", alphabet_file);
+            info!("Suffix links: {}", suffix_links);
+            info!("FASTA directory: {}", fasta_dir);
 
             // get all .fasta files in the fasta_dir
             // and load them into the sequence container
@@ -223,7 +230,7 @@ fn main() -> io::Result<()> {
             );
 
             for sequence in sequence_container.sequences.iter() {
-                suffix_tree.insert_string(&sequence.sequence, true);
+                suffix_tree.insert_string(&sequence.sequence, *suffix_links);
             }
 
             let num_sequences = sequence_container.sequences.len();
@@ -234,7 +241,7 @@ fn main() -> io::Result<()> {
 
             // configure thread pool for concurrent processing
             rayon::ThreadPoolBuilder::new()
-                .num_threads(24)
+                .num_threads(8)
                 .build_global()
                 .unwrap();
 
@@ -253,54 +260,60 @@ fn main() -> io::Result<()> {
 
                         let (start_i, start_j, lcs_length) = suffix_tree.get_lcs(i, j);
 
-                        // log lcs length
+                        // log lcs length and coordinates
                         info!(
-                            "[Comparison] LCS length between {} and {}: {}",
-                            i, j, lcs_length
+                            "[Comparison] LCS length between {} and {}: {}, coordinates: ({}, {})",
+                            i, j, lcs_length, start_i, start_j
                         );
 
-                        // // get the prefixes from i and j
-                        // let prefix_i = &sequence_container.sequences[i].sequence[..start_i];
-                        // let prefix_j = &sequence_container.sequences[j].sequence[..start_j];
+                        // skip alignment if lcs length is too small
+                        if lcs_length < sequence_container.sequences[i].sequence.len() / 3 {
+                            *similarity_score = lcs_length;
+                            continue;
+                        }
 
-                        // let prefix_container = SequenceContainer::from_strings(prefix_i, prefix_j);
+                        // get the prefixes from i and j
+                        let prefix_i = &sequence_container.sequences[i].sequence[..start_i];
+                        let prefix_j = &sequence_container.sequences[j].sequence[..start_j];
 
-                        // // log prefix lengths
-                        // info!(
-                        //     "[Comparison] Prefix lengths: {} and {}",
-                        //     prefix_container.sequences[0].sequence.len(),
-                        //     prefix_container.sequences[1].sequence.len()
-                        // );
+                        let prefix_container = SequenceContainer::from_strings(prefix_i, prefix_j);
 
-                        // let (_, matches_prefix) = alignment::algo::alignment_table(
-                        //     &prefix_container,
-                        //     &config.scores,
-                        //     false,
-                        //     true,
-                        // );
+                        // log prefix lengths
+                        info!(
+                            "[Comparison] Prefix lengths: {} and {}",
+                            prefix_container.sequences[0].sequence.len(),
+                            prefix_container.sequences[1].sequence.len()
+                        );
 
-                        // let suffix_i =
-                        //     &sequence_container.sequences[i].sequence[start_i + lcs_length..];
-                        // let suffix_j =
-                        //     &sequence_container.sequences[j].sequence[start_j + lcs_length..];
+                        let (_, matches_prefix) = alignment::algo::alignment_table(
+                            &prefix_container,
+                            &config.scores,
+                            false,
+                            true,
+                        );
 
-                        // // log suffix lengths
-                        // info!(
-                        //     "[Comparison] Suffix lengths: {} and {}",
-                        //     suffix_i.len(),
-                        //     suffix_j.len()
-                        // );
+                        let suffix_i =
+                            &sequence_container.sequences[i].sequence[start_i + lcs_length..];
+                        let suffix_j =
+                            &sequence_container.sequences[j].sequence[start_j + lcs_length..];
 
-                        // let suffix_container = SequenceContainer::from_strings(suffix_i, suffix_j);
+                        // log suffix lengths
+                        info!(
+                            "[Comparison] Suffix lengths: {} and {}",
+                            suffix_i.len(),
+                            suffix_j.len()
+                        );
 
-                        // let (_, matches_suffix) = alignment::algo::alignment_table(
-                        //     &suffix_container,
-                        //     &config.scores,
-                        //     false,
-                        //     false,
-                        // );
+                        let suffix_container = SequenceContainer::from_strings(suffix_i, suffix_j);
 
-                        *similarity_score = lcs_length; // + matches_prefix + matches_suffix;
+                        let (_, matches_suffix) = alignment::algo::alignment_table(
+                            &suffix_container,
+                            &config.scores,
+                            false,
+                            false,
+                        );
+
+                        *similarity_score = lcs_length + matches_prefix + matches_suffix;
                     }
                 });
 

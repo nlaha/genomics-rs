@@ -494,12 +494,10 @@ impl SuffixTree {
 
         // Get the current label
         let original_label_start = node_ref.edge_start;
-        let original_label_end = node_ref.edge_end;
 
         // update the current node's edge
         // so that it's the last part of the current label
         node_ref.edge_start = break_idx;
-        node_ref.edge_end = original_label_end;
 
         // create a new internal node
         // with edge = the first part of the current label
@@ -516,12 +514,11 @@ impl SuffixTree {
         );
 
         // set the associated strings for the new internal node
-        let associated_strings = &mut self.nodes[new_internal_node]
+        self.nodes[new_internal_node]
             .as_mut()
             .expect("New internal node not found")
-            .associated_strings;
-
-        associated_strings.set(leaf_string_idx, true);
+            .associated_strings
+            .set(leaf_string_idx, true);
 
         if create_leaf {
             // add the leaf on the new internal node
@@ -551,7 +548,7 @@ impl SuffixTree {
             id: internal_id,
             string_depth: string_depth,
             parent: Some(parent),
-            children: Vec::with_capacity(self.alphabet.len() + STRING_TERMINATORS.len()),
+            children: Vec::with_capacity(2),
             edge_start: edge_start,
             edge_end: edge_end,
             // suffix link to last internal node
@@ -599,7 +596,7 @@ impl SuffixTree {
             id: leaf_id,
             string_depth: parent_ref.string_depth + (edge_end - edge_start),
             parent: Some(parent),
-            children: Vec::with_capacity(self.alphabet.len() + STRING_TERMINATORS.len()),
+            children: Vec::new(),
             edge_start: edge_start,
             edge_end: edge_end,
             suffix_link: None,

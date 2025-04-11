@@ -35,4 +35,7 @@ strip = "debuginfo"
 opt-level = 3
 codegen-units = 1
 lto = false
+
+[profile.profiling]
+inherits = "release"
 debug = true

@@ -19,3 +19,5 @@ target/
 perf.*
 profile.*
 bwt_out
+suffixtree.dot
+output.svg
