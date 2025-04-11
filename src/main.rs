@@ -222,6 +222,7 @@ fn main() -> io::Result<()> {
 
             // get all .fasta files in the fasta_dir
             // and load them into the sequence container
+            info!("Loading sequences from {}", fasta_dir);
             for file in fs::read_dir(fasta_dir)? {
                 let file = file?;
                 if file.path().extension().unwrap() != "fasta" {
@@ -230,7 +231,10 @@ fn main() -> io::Result<()> {
 
                 sequence_container.from_fasta(file.path().to_str().unwrap());
             }
+            let num_sequences = sequence_container.sequences.len();
+            info!("Number of sequences: {}", num_sequences);
 
+            info!("Creating initial suffix tree");
             let mut suffix_tree = suffixtree::tree::SuffixTree::new(
                 alphabet_file,
                 sequence_container.sequences[0].sequence.len(),
@@ -239,9 +243,7 @@ fn main() -> io::Result<()> {
             for sequence in sequence_container.sequences.iter() {
                 suffix_tree.insert_string(&sequence.sequence, *suffix_links);
             }
-
-            let num_sequences = sequence_container.sequences.len();
-            info!("Number of sequences: {}", num_sequences);
+            info!("Suffix tree created");
 
             let mut similarity_matrix: Array2<(usize, usize, usize)> =
                 Array2::from_shape_fn((num_sequences, num_sequences).f(), |_| (0, 0, 0));
