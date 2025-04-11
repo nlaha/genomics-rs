@@ -1,6 +1,10 @@
 use std::{
     ops::Add,
-    simd::{i64x4, num::SimdInt},
+    simd::{
+        i64x4,
+        num::{SimdInt, SimdUint},
+        usizex4,
+    },
 };
 
 use log::{debug, error, info, warn};
@@ -24,6 +28,10 @@ pub struct AlignmentCell {
     pub insert_score: i64,
     pub delete_score: i64,
     pub sub_score: i64,
+
+    pub insert_matches: usize,
+    pub delete_matches: usize,
+    pub sub_matches: usize,
 }
 
 impl Add for AlignmentCell {
@@ -34,6 +42,10 @@ impl Add for AlignmentCell {
             insert_score: self.insert_score + other.insert_score,
             delete_score: self.delete_score + other.delete_score,
             sub_score: self.sub_score + other.sub_score,
+
+            insert_matches: self.insert_matches + other.insert_matches,
+            delete_matches: self.delete_matches + other.delete_matches,
+            sub_matches: self.sub_matches + other.sub_matches,
         }
     }
 }
@@ -44,23 +56,37 @@ impl Zero for AlignmentCell {
             insert_score: 0,
             delete_score: 0,
             sub_score: 0,
+
+            insert_matches: 0,
+            delete_matches: 0,
+            sub_matches: 0,
         }
     }
 
     fn is_zero(&self) -> bool {
-        self.insert_score == 0 && self.delete_score == 0 && self.sub_score == 0
+        self.insert_score == 0
+            && self.delete_score == 0
+            && self.sub_score == 0
+            && self.insert_matches == 0
+            && self.delete_matches == 0
+            && self.sub_matches == 0
     }
 
     fn set_zero(&mut self) {
         self.insert_score = 0;
         self.delete_score = 0;
         self.sub_score = 0;
+
+        self.insert_matches = 0;
+        self.delete_matches = 0;
+        self.sub_matches = 0;
     }
 }
 
 /// Handles score calculation for alignment cells
 pub trait ComputeScore {
     fn score_max(&self, i_mod: i64, s_mod: i64, d_mod: i64, is_local: bool) -> i64;
+    fn max_matches(&self) -> usize;
 }
 
 impl ComputeScore for AlignmentCell {
@@ -78,6 +104,20 @@ impl ComputeScore for AlignmentCell {
         ]);
 
         v.reduce_max()
+    }
+
+    /**
+     * Finds the maximum number of matches in the cell from each direction
+     */
+    fn max_matches(&self) -> usize {
+        let v: std::simd::Simd<usize, 4> = usizex4::from_array([
+            self.insert_matches,
+            self.sub_matches,
+            self.delete_matches,
+            0,
+        ]);
+
+        v.reduce_max() as usize
     }
 }
 
@@ -112,7 +152,11 @@ pub fn alignment_table(
     sequence_container: &SequenceContainer,
     scores: &Scores,
     is_local: bool,
-) -> Array2<AlignmentCell> {
+    reverse_sequences: bool,
+) -> (Array2<AlignmentCell>, usize) {
+    let mut maximum_score = i64::MIN;
+    let mut max_cell = (0, 0);
+
     // if more than two sequences are found
     if sequence_container.sequences.len() > 2 {
         warn!("More than two sequences found. Only the first two will be used.");
@@ -152,18 +196,27 @@ pub fn alignment_table(
                     insert_score: 0,
                     delete_score: 0,
                     sub_score: 0,
+                    insert_matches: 0,
+                    delete_matches: 0,
+                    sub_matches: 0,
                 },
                 // column
                 (i, 0) => AlignmentCell {
                     insert_score: negative_inf,
                     delete_score: scores.h + (i as i64 * scores.g),
                     sub_score: negative_inf,
+                    insert_matches: 0,
+                    delete_matches: 0,
+                    sub_matches: 0,
                 },
                 // row
                 (0, j) => AlignmentCell {
                     insert_score: scores.h + (j as i64 * scores.g),
                     delete_score: negative_inf,
                     sub_score: negative_inf,
+                    insert_matches: 0,
+                    delete_matches: 0,
+                    sub_matches: 0,
                 },
                 (i, j) => {
                     // recurrence relationships for S, D and I
@@ -171,8 +224,10 @@ pub fn alignment_table(
                     let left = alignment_table[[i - 1, j]];
                     let top = alignment_table[[i, j - 1]];
 
+                    let is_match = sequence_container.is_match(i - 1, j - 1, reverse_sequences);
+
                     // build alignment cell struct
-                    AlignmentCell {
+                    let cell = AlignmentCell {
                         insert_score: top.score_max(
                             scores.g,
                             scores.h + scores.g,
@@ -187,11 +242,26 @@ pub fn alignment_table(
                             is_local,
                         ),
 
-                        sub_score: match sequence_container.is_match(i - 1, j - 1) {
+                        sub_score: match is_match {
                             true => scores.s_match + top_left.score_max(0, 0, 0, is_local),
                             false => scores.s_mismatch + top_left.score_max(0, 0, 0, is_local),
                         },
+
+                        insert_matches: top.max_matches(),
+                        delete_matches: left.max_matches(),
+                        sub_matches: match is_match {
+                            true => top_left.max_matches() + 1,
+                            false => top_left.max_matches(),
+                        },
+                    };
+
+                    let max_cell_score = cell.score_max(0, 0, 0, is_local);
+                    if maximum_score < max_cell_score {
+                        max_cell = (i, j);
+                        maximum_score = max_cell_score;
                     }
+
+                    cell
                 }
             };
         }
@@ -206,7 +276,9 @@ pub fn alignment_table(
         (end_table_init - start_table_init).as_micros()
     );
 
-    return alignment_table;
+    let matches_at_max = alignment_table[max_cell].max_matches();
+
+    return (alignment_table, matches_at_max);
 }
 
 /// Performs a retrace of the optimal alignment path from the sequence table
@@ -279,7 +351,7 @@ pub fn retrace(
         let (i_opt, j_opt) = match max {
             // top_left move
             val if val == cell.sub_score => {
-                if sequence_container.is_match(i, j) {
+                if sequence_container.is_match(i, j, false) {
                     last_choice = AlignmentChoice::Match;
                     aligned_sequences.matches += 1;
                     aligned_sequences

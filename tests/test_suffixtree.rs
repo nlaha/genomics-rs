@@ -172,6 +172,27 @@ mod test_suffixtree {
         println!("{}", tree);
     }
 
+    #[test]
+    fn test_generalized_suffix_tree3() {
+        // // set default log level
+        // std::env::set_var("RUST_LOG", "debug");
+
+        // // init logging
+        // pretty_env_logger::init();
+
+        let mut tree = SuffixTree::new("alphabets/dna.txt", 10);
+        tree.insert_string("ATTAAAGGTTT", true);
+        tree.insert_string("ATTAAAGGTTT", true);
+        tree.insert_string("ACCTT", true);
+
+        tree.compute_stats(0);
+
+        let (s1, s2, length) = tree.get_lcs(1, 2);
+        println!("LCS: S1 -> {}, S2 -> {}, Length -> {}", s1, s2, length);
+
+        println!("{}", tree);
+    }
+
     // #[test]
     // fn test_tree_chr12() {
     //     let mut sequence_container: SequenceContainer = SequenceContainer {

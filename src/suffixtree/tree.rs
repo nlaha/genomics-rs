@@ -18,7 +18,7 @@ pub struct TreeNode {
     pub edge_end: usize,
     pub parent: Option<usize>,
     pub suffix_link: Option<usize>,
-    pub children: HashMap<char, Option<usize>>,
+    pub children: Vec<Option<usize>>,
 
     // the string index this node was created by
     pub source_string: usize,
@@ -97,7 +97,6 @@ impl SuffixTree {
             .resize(self.nodes.len() + (string_length * 2 + 1), None);
 
         let string_idx = self.strings.len();
-        self.alphabet.push(STRING_TERMINATORS[string_idx]);
         self.strings
             .push(new_string.to_string() + STRING_TERMINATORS[string_idx].to_string().as_str());
 
@@ -138,7 +137,7 @@ impl SuffixTree {
             }
         };
 
-        let mut alphabet_sorted = alphabet.clone();
+        let mut alphabet_sorted = [STRING_TERMINATORS.to_vec(), alphabet].concat();
         alphabet_sorted.sort();
 
         let mut tree = SuffixTree {
@@ -164,7 +163,7 @@ impl SuffixTree {
             id: 0,
             string_depth: 0,
             parent: None,
-            children: HashMap::with_capacity(tree.alphabet.len()),
+            children: Vec::with_capacity(tree.alphabet.len() + STRING_TERMINATORS.len()),
             edge_start: 0,
             edge_end: 0,
             suffix_link: Some(0),
@@ -278,8 +277,13 @@ impl SuffixTree {
      * Follows the suffix link
      */
     fn suffix_link_traversal(&mut self, suffix_idx: usize, string_idx: usize) {
+        let next_leaf_sanitized = if suffix_idx == 0 {
+            0
+        } else {
+            self.next_leaf_id - 1
+        };
         // update suffix link
-        let u_idx = self.nodes[self.next_leaf_id - 1]
+        let u_idx = self.nodes[next_leaf_sanitized]
             .as_ref()
             .unwrap()
             .parent
@@ -396,7 +400,7 @@ impl SuffixTree {
 
         // figure out where we should insert it
         let child_idx = match self.strings[string_idx].bytes().nth(child.edge_start) {
-            Some(c) => c as char,
+            Some(c) => get_child_index(&self.alphabet, c as char),
             None => {
                 panic!("Child node has no edge label");
             }
@@ -416,7 +420,10 @@ impl SuffixTree {
         let parent_ref = self.nodes[parent]
             .as_mut()
             .expect("Parent node not found in add_child");
-        parent_ref.children.insert(child_idx, Some(child.id));
+        if parent_ref.children.len() <= child_idx {
+            parent_ref.children.resize(child_idx + 1, None);
+        }
+        parent_ref.children[child_idx] = Some(child.id);
 
         // add to nodes array
         let child_id = child.id;
@@ -441,13 +448,8 @@ impl SuffixTree {
             if callback(node) {
                 return Some(node);
             }
-            for child in node.children.values() {
-                match child {
-                    Some(child) => {
-                        stack.push(self.nodes[*child].as_ref().expect("Child node not found"))
-                    }
-                    None => (),
-                }
+            for child in node.children.iter().rev().flatten() {
+                stack.push(self.nodes[*child].as_ref().expect("Child node not found"));
             }
         }
 
@@ -472,6 +474,23 @@ impl SuffixTree {
         let node_ref = &mut self.nodes[node]
             .as_mut()
             .expect("Node not found in break_edge");
+
+        // check if the break point is at the start or end of the edge
+        if break_idx == node_ref.edge_start || break_idx == node_ref.edge_end {
+            error!(
+                "Break index is at the {} of the edge for node {} with edge {}-{} on string {}",
+                if break_idx == node_ref.edge_start {
+                    "start"
+                } else {
+                    "end"
+                },
+                node_ref.id,
+                node_ref.edge_start,
+                node_ref.edge_end,
+                node_ref.source_string
+            );
+            return node;
+        }
 
         // Get the current label
         let original_label_start = node_ref.edge_start;
@@ -532,7 +551,7 @@ impl SuffixTree {
             id: internal_id,
             string_depth: string_depth,
             parent: Some(parent),
-            children: HashMap::with_capacity(self.alphabet.len()),
+            children: Vec::with_capacity(self.alphabet.len() + STRING_TERMINATORS.len()),
             edge_start: edge_start,
             edge_end: edge_end,
             // suffix link to last internal node
@@ -580,13 +599,18 @@ impl SuffixTree {
             id: leaf_id,
             string_depth: parent_ref.string_depth + (edge_end - edge_start),
             parent: Some(parent),
-            children: HashMap::with_capacity(self.alphabet.len()),
+            children: Vec::with_capacity(self.alphabet.len() + STRING_TERMINATORS.len()),
             edge_start: edge_start,
             edge_end: edge_end,
             suffix_link: None,
             source_string: string_idx,
             associated_strings: bitvec![u32, Lsb0; 0; 32],
         };
+
+        debug!(
+            "[CreateLeaf] Creating leaf {} with edge {}-{}",
+            leaf_id, edge_start, edge_end
+        );
 
         // set the associated strings for the new leaf node
         leaf.associated_strings.set(string_idx, true);
@@ -634,7 +658,8 @@ impl SuffixTree {
             let c = self.strings[beta_string_idx].as_bytes()[beta_end - remaining_beta] as char;
             debug!("[NodeHops] Fetching index for character {}", c);
 
-            let child_node_idx = current_node_ref.children.get(&c).unwrap_or(&None);
+            let child_idx: usize = get_child_index(&self.alphabet, c as char);
+            let child_node_idx = current_node_ref.children.get(child_idx).unwrap_or(&None);
 
             match child_node_idx {
                 Some(child_node_idx) => {
@@ -841,7 +866,10 @@ impl SuffixTree {
             );
 
             if suffix_sub_idx == suffix_len {
-                debug!("[FindPath] Reached end of suffix (perfect match with existing)");
+                debug!(
+                    "[FindPath] Reached end of suffix (perfect match with existing) {}",
+                    current_node.id
+                );
                 self.next_leaf_id = current_node.id + 1;
                 return;
             }
@@ -864,7 +892,8 @@ impl SuffixTree {
                 c, suffix_sub_idx
             );
 
-            let child_node = *current_node.children.get(&c).unwrap_or(&None);
+            let child_idx: usize = get_child_index(&self.alphabet, c);
+            let child_node = *current_node.children.get(child_idx).unwrap_or(&None);
 
             match child_node {
                 // there's already a child node, so we need to keep moving down the tree

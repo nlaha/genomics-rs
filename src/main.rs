@@ -2,8 +2,12 @@
 
 use clap::{Parser, Subcommand};
 use colored::Colorize;
+use comparison::display::print_similarity_matrix;
 use config::Config;
 use log::info;
+use ndarray::parallel::prelude::*;
+use ndarray::Axis;
+use ndarray::{Array2, ShapeBuilder};
 use pretty_env_logger;
 use sequence::{SequenceContainer, SequenceOperations};
 use std::{
@@ -13,6 +17,7 @@ use std::{
 };
 
 mod alignment;
+mod comparison;
 mod config;
 mod sequence;
 mod suffixtree;
@@ -125,8 +130,12 @@ fn main() -> io::Result<()> {
 
             info!("{}", "Alignment".bright_green());
             let is_local = alignment_type == "local" || alignment_type == "1";
-            let alignment_table =
-                alignment::algo::alignment_table(&sequence_container, &config.scores, is_local);
+            let (alignment_table, _) = alignment::algo::alignment_table(
+                &sequence_container,
+                &config.scores,
+                is_local,
+                false,
+            );
             let alignment =
                 alignment::algo::retrace(&sequence_container, alignment_table, is_local);
 
@@ -204,6 +213,7 @@ fn main() -> io::Result<()> {
                 if file.path().extension().unwrap() != "fasta" {
                     continue;
                 }
+
                 sequence_container.from_fasta(file.path().to_str().unwrap());
             }
 
@@ -216,22 +226,85 @@ fn main() -> io::Result<()> {
                 suffix_tree.insert_string(&sequence.sequence, true);
             }
 
+            let num_sequences = sequence_container.sequences.len();
+            info!("Number of sequences: {}", num_sequences);
+
+            let mut similarity_matrix: Array2<usize> =
+                Array2::zeros((num_sequences, num_sequences).f());
+
+            // configure thread pool for concurrent processing
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(24)
+                .build_global()
+                .unwrap();
+
             // get lcs for each pair of sequences in the tree
-            for i in 0..sequence_container.sequences.len() {
-                for j in i + 1..sequence_container.sequences.len() {
-                    let (start_i, start_j, length) = suffix_tree.get_lcs(i, j);
-                    // get the prefixes from i and j
-                    let prefix_i = &sequence_container.sequences[i].sequence[..start_i];
-                    let prefix_j = &sequence_container.sequences[j].sequence[..start_j];
+            similarity_matrix
+                .axis_iter_mut(Axis(0))
+                .into_par_iter()
+                .enumerate()
+                .for_each(|(j, mut row)| {
+                    for (i, similarity_score) in row.indexed_iter_mut() {
+                        // skip if i == j
+                        if i == j {
+                            *similarity_score = sequence_container.sequences[i].sequence.len();
+                            return;
+                        }
 
-                    let prefix_container = SequenceContainer::from_prefixes(prefix_i, prefix_j);
+                        let (start_i, start_j, lcs_length) = suffix_tree.get_lcs(i, j);
 
-                    let alignment_table =
-                        alignment::algo::alignment_table(&prefix_container, &config.scores, false);
-                }
-            }
+                        // log lcs length
+                        info!(
+                            "[Comparison] LCS length between {} and {}: {}",
+                            i, j, lcs_length
+                        );
 
-            info!("{}", suffix_tree);
+                        // // get the prefixes from i and j
+                        // let prefix_i = &sequence_container.sequences[i].sequence[..start_i];
+                        // let prefix_j = &sequence_container.sequences[j].sequence[..start_j];
+
+                        // let prefix_container = SequenceContainer::from_strings(prefix_i, prefix_j);
+
+                        // // log prefix lengths
+                        // info!(
+                        //     "[Comparison] Prefix lengths: {} and {}",
+                        //     prefix_container.sequences[0].sequence.len(),
+                        //     prefix_container.sequences[1].sequence.len()
+                        // );
+
+                        // let (_, matches_prefix) = alignment::algo::alignment_table(
+                        //     &prefix_container,
+                        //     &config.scores,
+                        //     false,
+                        //     true,
+                        // );
+
+                        // let suffix_i =
+                        //     &sequence_container.sequences[i].sequence[start_i + lcs_length..];
+                        // let suffix_j =
+                        //     &sequence_container.sequences[j].sequence[start_j + lcs_length..];
+
+                        // // log suffix lengths
+                        // info!(
+                        //     "[Comparison] Suffix lengths: {} and {}",
+                        //     suffix_i.len(),
+                        //     suffix_j.len()
+                        // );
+
+                        // let suffix_container = SequenceContainer::from_strings(suffix_i, suffix_j);
+
+                        // let (_, matches_suffix) = alignment::algo::alignment_table(
+                        //     &suffix_container,
+                        //     &config.scores,
+                        //     false,
+                        //     false,
+                        // );
+
+                        *similarity_score = lcs_length; // + matches_prefix + matches_suffix;
+                    }
+                });
+
+            print_similarity_matrix(&similarity_matrix);
         }
     };
 

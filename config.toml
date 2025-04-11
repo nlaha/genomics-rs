@@ -1,5 +1,5 @@
 [scores]
 s_match = 1
 s_mismatch = -2
-g = -2
+g = -1
 h = -5

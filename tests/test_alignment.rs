@@ -36,7 +36,8 @@ mod test_alignment {
             sequences: vec![s1, s2],
         };
 
-        let alignment_table = alignment::algo::alignment_table(&sc, &TEST_CONFIG.scores, false);
+        let (alignment_table, _) =
+            alignment::algo::alignment_table(&sc, &TEST_CONFIG.scores, false, false);
         let aligned_sequences = alignment::algo::retrace(&sc, alignment_table, false);
 
         println!("{}", aligned_sequences);
@@ -67,7 +68,8 @@ mod test_alignment {
             sequences: vec![s1, s2],
         };
 
-        let alignment_table = alignment::algo::alignment_table(&sc, &TEST_CONFIG.scores, false);
+        let (alignment_table, _) =
+            alignment::algo::alignment_table(&sc, &TEST_CONFIG.scores, false, false);
         let aligned_sequences = alignment::algo::retrace(&sc, alignment_table, false);
 
         println!("{}", aligned_sequences);
@@ -103,7 +105,8 @@ mod test_alignment {
             sequences: vec![s1, s2],
         };
 
-        let alignment_table = alignment::algo::alignment_table(&sc, &TEST_CONFIG.scores, false);
+        let (alignment_table, _) =
+            alignment::algo::alignment_table(&sc, &TEST_CONFIG.scores, false, false);
         let aligned_sequences = alignment::algo::retrace(&sc, alignment_table, false);
 
         println!("{}", aligned_sequences);
