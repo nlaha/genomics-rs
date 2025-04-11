@@ -119,7 +119,7 @@ impl SuffixTree {
 
         let elapsed = after_tree.duration_since(before_tree).as_micros();
         let elapsed_millis = after_tree.duration_since(before_tree).as_millis();
-        info!(
+        debug!(
             "[FindPath] Time taken to build suffix tree: {} us ({} ms)",
             elapsed, elapsed_millis
         );
@@ -174,7 +174,7 @@ impl SuffixTree {
         });
 
         // print the size of a single node in RAM
-        info!(
+        debug!(
             "Size of a single node in RAM: {} bytes",
             std::mem::size_of_val(&tree.nodes[0])
         );

@@ -4,10 +4,7 @@ fn percentage(num: usize, total: usize) -> f64 {
     (num as f64 / total as f64) * 100.0
 }
 
-pub fn print_similarity_matrix(similarity_matrix: &ndarray::Array2<usize>) {
-    // find maximum score in the table
-    let max_score = similarity_matrix.iter().max().unwrap_or(&0);
-
+pub fn print_similarity_matrix(similarity_matrix: &ndarray::Array2<(usize, usize, usize)>) {
     // print columns
     print!("  ");
     for i in 0..similarity_matrix.ncols() {
@@ -20,7 +17,9 @@ pub fn print_similarity_matrix(similarity_matrix: &ndarray::Array2<usize>) {
         // print sequence base
         print!("{} ", i);
         for j in 0..similarity_matrix.ncols() {
-            let percentage_value = percentage(similarity_matrix[[i, j]], *max_score);
+            let score = similarity_matrix[[i, j]];
+            let max = std::cmp::max(score.1, score.2);
+            let percentage_value = percentage(score.0, max);
             let color = VIRIDIS_COLORS[percentage_value as usize / 4];
             print!("{} ", "■".truecolor(color.0, color.1, color.2));
         }

@@ -236,12 +236,12 @@ fn main() -> io::Result<()> {
             let num_sequences = sequence_container.sequences.len();
             info!("Number of sequences: {}", num_sequences);
 
-            let mut similarity_matrix: Array2<usize> =
-                Array2::zeros((num_sequences, num_sequences).f());
+            let mut similarity_matrix: Array2<(usize, usize, usize)> =
+                Array2::from_shape_fn((num_sequences, num_sequences).f(), |_| (0, 0, 0));
 
             // configure thread pool for concurrent processing
             rayon::ThreadPoolBuilder::new()
-                .num_threads(8)
+                .num_threads(24)
                 .build_global()
                 .unwrap();
 
@@ -252,68 +252,63 @@ fn main() -> io::Result<()> {
                 .enumerate()
                 .for_each(|(j, mut row)| {
                     for (i, similarity_score) in row.indexed_iter_mut() {
-                        // skip if i == j
-                        if i == j {
-                            *similarity_score = sequence_container.sequences[i].sequence.len();
-                            return;
-                        }
-
-                        let (start_i, start_j, lcs_length) = suffix_tree.get_lcs(i, j);
-
-                        // log lcs length and coordinates
-                        info!(
-                            "[Comparison] LCS length between {} and {}: {}, coordinates: ({}, {})",
-                            i, j, lcs_length, start_i, start_j
-                        );
-
-                        // skip alignment if lcs length is too small
-                        if lcs_length < sequence_container.sequences[i].sequence.len() / 3 {
-                            *similarity_score = lcs_length;
+                        // skip if i > j
+                        if i > j {
                             continue;
                         }
 
-                        // get the prefixes from i and j
-                        let prefix_i = &sequence_container.sequences[i].sequence[..start_i];
-                        let prefix_j = &sequence_container.sequences[j].sequence[..start_j];
+                        // get initial LCS on entire sequences
+                        let (start_i, start_j, lcs_length) = suffix_tree.get_lcs(i, j);
 
-                        let prefix_container = SequenceContainer::from_strings(prefix_i, prefix_j);
+                        let get_matches = |s1: &String, s2: &String| {
+                            let mut st = suffixtree::tree::SuffixTree::new(
+                                alphabet_file,
+                                s1.len() + s2.len(),
+                            );
 
-                        // log prefix lengths
-                        info!(
-                            "[Comparison] Prefix lengths: {} and {}",
-                            prefix_container.sequences[0].sequence.len(),
-                            prefix_container.sequences[1].sequence.len()
+                            st.insert_string(s1, true);
+                            st.insert_string(s2, true);
+
+                            let (st_i, st_j, len) = st.get_lcs(0, 1);
+
+                            return (len, st_i, st_j, s1.clone(), s2.clone());
+                        };
+
+                        // we're going to emulate recursion here
+                        let mut stack: Vec<(usize, usize, usize, String, String)> = Vec::new();
+                        stack.push((
+                            lcs_length,
+                            start_i,
+                            start_j,
+                            sequence_container.sequences[i].sequence.clone(),
+                            sequence_container.sequences[j].sequence.clone(),
+                        ));
+
+                        // basically do a DFS
+                        let mut score = 0;
+                        while !stack.is_empty() {
+                            let (lcs_length, st_i, st_j, s1, s2) = stack.pop().unwrap();
+
+                            let prefix_i = &s1[..st_i].to_string();
+                            let prefix_j = &s2[..st_j].to_string();
+                            let suffix_i = &s1[st_i + lcs_length..].to_string();
+                            let suffix_j = &s2[st_j + lcs_length..].to_string();
+
+                            // push children
+                            if lcs_length > 0 {
+                                stack.push(get_matches(prefix_i, prefix_j));
+                                stack.push(get_matches(suffix_i, suffix_j));
+                            }
+
+                            // process
+                            score += lcs_length;
+                        }
+
+                        *similarity_score = (
+                            score,
+                            sequence_container.sequences[i].sequence.len(),
+                            sequence_container.sequences[j].sequence.len(),
                         );
-
-                        let (_, matches_prefix) = alignment::algo::alignment_table(
-                            &prefix_container,
-                            &config.scores,
-                            false,
-                            true,
-                        );
-
-                        let suffix_i =
-                            &sequence_container.sequences[i].sequence[start_i + lcs_length..];
-                        let suffix_j =
-                            &sequence_container.sequences[j].sequence[start_j + lcs_length..];
-
-                        // log suffix lengths
-                        info!(
-                            "[Comparison] Suffix lengths: {} and {}",
-                            suffix_i.len(),
-                            suffix_j.len()
-                        );
-
-                        let suffix_container = SequenceContainer::from_strings(suffix_i, suffix_j);
-
-                        let (_, matches_suffix) = alignment::algo::alignment_table(
-                            &suffix_container,
-                            &config.scores,
-                            false,
-                            false,
-                        );
-
-                        *similarity_score = lcs_length + matches_prefix + matches_suffix;
                     }
                 });
 
