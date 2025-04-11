@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use bitvec::prelude::*;
 
-use log::{debug, error, info};
+use log::{debug, error};
 
 /**
  * Represents a node in the suffix tree

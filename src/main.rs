@@ -1,7 +1,7 @@
 #![feature(portable_simd)]
 
 use clap::{Parser, Subcommand};
-use colored::{control, Colorize};
+use colored::Colorize;
 use comparison::display::print_similarity_matrix;
 use config::Config;
 use log::info;
