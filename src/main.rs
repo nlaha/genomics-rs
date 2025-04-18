@@ -1,7 +1,7 @@
 #![feature(portable_simd)]
 
 use clap::{Parser, Subcommand};
-use colored::Colorize;
+use colored::{control, Colorize};
 use comparison::display::print_similarity_matrix;
 use config::Config;
 use log::info;
@@ -84,6 +84,10 @@ struct CliArgs {
 }
 
 fn main() -> io::Result<()> {
+    if cfg!(windows) {
+        control::set_virtual_terminal(true).unwrap();
+    }
+
     // parse cli args
     let args = CliArgs::parse();
 
@@ -344,11 +348,29 @@ fn main() -> io::Result<()> {
                 .open("similarity_matrix.csv")
                 .unwrap();
 
+            println!("TSV:");
+            // first print sequence indices as columns
+            write!(out_file, ",")?;
+            print!("{}\t", " ");
+            for i in 0..num_sequences {
+                write!(out_file, "{},", i)?;
+                print!("{}\t", i);
+            }
+            writeln!(out_file)?;
+            println!("");
+
+            let mut row_idx = 0;
             for row in similarity_matrix.axis_iter(Axis(0)) {
+                // first row is the sequence index
+                write!(out_file, "{},", row_idx)?;
+                print!("{}\t", row_idx);
                 for (score, _len1, _len2) in row.iter() {
                     write!(out_file, "{},", score)?;
+                    print!("{}\t", score);
                 }
                 writeln!(out_file)?;
+                println!("");
+                row_idx += 1;
             }
         }
     };
