@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod test_suffixtree {
 
-    use genomics_rs::sequence::{SequenceContainer, SequenceOperations};
+    use genomics_rs::sequence::{self, SequenceContainer, SequenceOperations};
     use genomics_rs::suffixtree::tree::SuffixTree;
 
     #[test]
     fn test_tree_simple2() {
         let mut tree = SuffixTree::new("alphabets/dna.txt", 10);
-        tree.insert_string("ACA", true);
+        tree.insert_string("ACA", true, true);
         tree.compute_stats(0);
 
         assert_eq!(tree.stats.num_nodes, 6);
@@ -16,7 +16,7 @@ mod test_suffixtree {
     #[test]
     fn test_tree_simple3() {
         let mut tree = SuffixTree::new("alphabets/banana.txt", 10);
-        tree.insert_string("BANANA", true);
+        tree.insert_string("BANANA", true, true);
         tree.compute_stats(0);
 
         println!("{}", tree);
@@ -33,7 +33,7 @@ mod test_suffixtree {
     #[test]
     fn test_tree_simple4() {
         let mut tree = SuffixTree::new("alphabets/english.txt", 20);
-        tree.insert_string("MISSISSIPPI", true);
+        tree.insert_string("MISSISSIPPI", true, true);
         tree.compute_stats(0);
 
         println!("{}", tree);
@@ -56,7 +56,7 @@ mod test_suffixtree {
         sequence_container.from_fasta("test_data/Covid_Wuhan.fasta");
 
         let mut suffix_tree = SuffixTree::new("alphabets/dna.txt", 200000);
-        suffix_tree.insert_string(&sequence_container.sequences[0].sequence, true);
+        suffix_tree.insert_string(&sequence_container.sequences[0].sequence, true, true);
         suffix_tree.compute_stats(0);
 
         assert_eq!(suffix_tree.stats.num_internal, 19098);
@@ -88,7 +88,7 @@ mod test_suffixtree {
         sequence_container.from_fasta("test_data/Human-BRCA2-cds.fasta");
 
         let mut suffix_tree = SuffixTree::new("alphabets/dna.txt", 200000);
-        suffix_tree.insert_string(&sequence_container.sequences[0].sequence, true);
+        suffix_tree.insert_string(&sequence_container.sequences[0].sequence, true, true);
         suffix_tree.compute_stats(0);
 
         assert_eq!(suffix_tree.stats.num_internal, 7299);
@@ -114,7 +114,7 @@ mod test_suffixtree {
         sequence_container.from_fasta("test_data/Slyco.fasta");
 
         let mut suffix_tree = SuffixTree::new("alphabets/dna.txt", 200000);
-        suffix_tree.insert_string(&sequence_container.sequences[0].sequence, true);
+        suffix_tree.insert_string(&sequence_container.sequences[0].sequence, true, true);
         suffix_tree.compute_stats(0);
 
         assert_eq!(suffix_tree.stats.num_internal, 98972);
@@ -134,8 +134,8 @@ mod test_suffixtree {
     #[test]
     fn test_generalized_suffix_tree() {
         let mut tree = SuffixTree::new("alphabets/banana.txt", 10);
-        tree.insert_string("BANANA", true);
-        tree.insert_string("ABANANA", true);
+        tree.insert_string("BANANA", true, true);
+        tree.insert_string("ABANANA", true, true);
         tree.compute_stats(0);
 
         let (s1, s2, length) = tree.get_lcs(0, 1);
@@ -157,9 +157,9 @@ mod test_suffixtree {
         // pretty_env_logger::init();
 
         let mut tree = SuffixTree::new("alphabets/banana.txt", 10);
-        tree.insert_string("BANANA", true);
-        tree.insert_string("BANANAB", true);
-        tree.insert_string("ABABABA", true);
+        tree.insert_string("BANANA", true, true);
+        tree.insert_string("BANANAB", true, true);
+        tree.insert_string("ABABABA", true, true);
         tree.compute_stats(0);
 
         let (s1, s2, length) = tree.get_lcs(1, 2);
@@ -180,10 +180,10 @@ mod test_suffixtree {
         // // init logging
         // pretty_env_logger::init();
 
-        let mut tree = SuffixTree::new("alphabets/dna.txt", 10);
-        tree.insert_string("ATTAAAGGTTT", true);
-        tree.insert_string("ATTAAAGGTTT", true);
-        tree.insert_string("ACCTT", true);
+        let mut tree = SuffixTree::new("alphabets/dna.txt", 11);
+        tree.insert_string("ATTAAAGGTTT", true, true);
+        tree.insert_string("ATTAAAGGTTT", true, true);
+        tree.insert_string("ACCTT", true, true);
 
         tree.compute_stats(0);
 
@@ -191,6 +191,49 @@ mod test_suffixtree {
         println!("LCS: S1 -> {}, S2 -> {}, Length -> {}", s1, s2, length);
 
         println!("{}", tree);
+    }
+
+    #[test]
+    fn test_generalized_suffix_tree_equal_sequences() {
+        // // set default log level
+        // std::env::set_var("RUST_LOG", "debug");
+
+        // // init logging
+        // pretty_env_logger::init();
+
+        let mut tree = SuffixTree::new("alphabets/dna.txt", 11);
+        tree.insert_string("ATTAAAGGTTT", true, true);
+        tree.insert_string("ATTAAAGGTTT", true, true);
+
+        tree.compute_stats(0);
+
+        let (s1, s2, length) = tree.get_lcs(0, 1);
+        println!("LCS: S1 -> {}, S2 -> {}, Length -> {}", s1, s2, length);
+
+        assert_eq!(length, 11);
+        assert_eq!(s1, 0);
+        assert_eq!(s2, 0);
+
+        println!("{}", tree);
+    }
+
+    #[test]
+    fn test_generalized_suffix_tree_equal_sequences_long() {
+        let mut sequence_container: SequenceContainer = SequenceContainer {
+            sequences: Vec::new(),
+        };
+
+        sequence_container.from_fasta("test_data/Slyco.fasta");
+
+        let mut suffix_tree = SuffixTree::new("alphabets/dna.txt", 200000);
+        suffix_tree.insert_string(&sequence_container.sequences[0].sequence, true, true);
+        suffix_tree.insert_string(&sequence_container.sequences[0].sequence, true, true);
+
+        let (s1, s2, length) = suffix_tree.get_lcs(0, 1);
+        println!("LCS: S1 -> {}, S2 -> {}, Length -> {}", s1, s2, length);
+        assert_eq!(length, sequence_container.sequences[0].sequence.len());
+        assert_eq!(s1, 0);
+        assert_eq!(s2, 0);
     }
 
     // #[test]

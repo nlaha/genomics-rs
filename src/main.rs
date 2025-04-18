@@ -1,7 +1,7 @@
 #![feature(portable_simd)]
 
 use clap::{Parser, Subcommand};
-use colored::{control, Colorize};
+use colored::Colorize;
 use comparison::display::print_similarity_matrix;
 use config::Config;
 use log::info;
@@ -168,7 +168,11 @@ fn main() -> io::Result<()> {
                 sequence_container.sequences[0].sequence.len(),
             );
 
-            suffix_tree.insert_string(&sequence_container.sequences[0].sequence, *suffix_links);
+            suffix_tree.insert_string(
+                &sequence_container.sequences[0].sequence,
+                *suffix_links,
+                true,
+            );
 
             if *stats {
                 suffix_tree.compute_stats(0);
@@ -241,9 +245,43 @@ fn main() -> io::Result<()> {
             );
 
             for sequence in sequence_container.sequences.iter() {
-                suffix_tree.insert_string(&sequence.sequence, *suffix_links);
+                info!(
+                    "Inserting sequence {} of length: {}",
+                    sequence_container.sequences.len(),
+                    sequence.sequence.len()
+                );
+                suffix_tree.insert_string(&sequence.sequence, *suffix_links, true);
             }
+
             info!("Suffix tree created");
+
+            let mut lcs_length: Array2<usize> =
+                Array2::from_shape_fn((num_sequences, num_sequences).f(), |_| (0));
+
+            lcs_length
+                .axis_iter_mut(Axis(0))
+                .enumerate()
+                .for_each(|(j, mut row)| {
+                    row.indexed_iter_mut().for_each(|(i, similarity_score)| {
+                        // skip if i > j
+                        if i > j {
+                            return;
+                        }
+
+                        // get initial LCS on entire sequences
+                        let (_, _, lcs_length) = suffix_tree.get_lcs(i, j);
+                        *similarity_score = lcs_length;
+
+                        info!(
+                            "Getting LCS for sequences ({} and {}) of length {}, and {} -> LCS: {}",
+                            i,
+                            j,
+                            sequence_container.sequences[i].sequence.len(),
+                            sequence_container.sequences[j].sequence.len(),
+                            lcs_length
+                        );
+                    });
+                });
 
             let mut similarity_matrix: Array2<(usize, usize, usize)> =
                 Array2::from_shape_fn((num_sequences, num_sequences).f(), |_| (0, 0, 0));
@@ -280,8 +318,8 @@ fn main() -> io::Result<()> {
                                     s1.len() + s2.len(),
                                 );
 
-                                st.insert_string(s1, true);
-                                st.insert_string(s2, true);
+                                st.insert_string(s1, true, false);
+                                st.insert_string(s2, true, false);
 
                                 let (st_i, st_j, len) = st.get_lcs(0, 1);
 
@@ -337,19 +375,19 @@ fn main() -> io::Result<()> {
 
             print_similarity_matrix(&similarity_matrix);
 
-            // write similarity matrix to csv
+            // write similarity matrix to tsv
             let mut out_file = OpenOptions::new()
                 .create(true)
                 .write(true)
-                .open("similarity_matrix.csv")
+                .open("similarity_matrix.tsv")
                 .unwrap();
 
-            println!("TSV:");
+            println!("Similarity TSV:");
             // first print sequence indices as columns
-            write!(out_file, ",")?;
+            write!(out_file, "\t")?;
             print!("{}\t", " ");
             for i in 0..num_sequences {
-                write!(out_file, "{},", i)?;
+                write!(out_file, "{}\t", i)?;
                 print!("{}\t", i);
             }
             writeln!(out_file)?;
@@ -358,13 +396,31 @@ fn main() -> io::Result<()> {
             let mut row_idx = 0;
             for row in similarity_matrix.axis_iter(Axis(0)) {
                 // first row is the sequence index
-                write!(out_file, "{},", row_idx)?;
+                write!(out_file, "{}\t", row_idx)?;
                 print!("{}\t", row_idx);
                 for (score, _len1, _len2) in row.iter() {
-                    write!(out_file, "{},", score)?;
+                    write!(out_file, "{}\t", score)?;
                     print!("{}\t", score);
                 }
                 writeln!(out_file)?;
+                println!("");
+                row_idx += 1;
+            }
+
+            println!("\nLCS Length TSV:");
+
+            print!("{}\t", " ");
+            for i in 0..num_sequences {
+                print!("{}\t", i);
+            }
+            println!("");
+            let mut row_idx = 0;
+            for row in lcs_length.axis_iter(Axis(0)) {
+                // first row is the sequence index
+                print!("{}\t", row_idx);
+                for lcs_length in row.iter() {
+                    print!("{}\t", lcs_length);
+                }
                 println!("");
                 row_idx += 1;
             }

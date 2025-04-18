@@ -72,7 +72,7 @@ impl SuffixTree {
     /**
      * Inserts a new string into the suffix tree
      */
-    pub fn insert_string(&mut self, new_string: &str, enable_suffix_links: bool) {
+    pub fn insert_string(&mut self, new_string: &str, enable_suffix_links: bool, print_time: bool) {
         let string_length: usize = new_string.len();
 
         // offset all indices for the next string so we have a layout like
@@ -123,6 +123,13 @@ impl SuffixTree {
             "[FindPath] Time taken to build suffix tree: {} us ({} ms)",
             elapsed, elapsed_millis
         );
+
+        if print_time == true {
+            debug!(
+                "[FindPath] Time taken to build suffix tree: {} us ({} ms)",
+                elapsed, elapsed_millis
+            );
+        }
     }
 
     /**
