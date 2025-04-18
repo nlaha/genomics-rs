@@ -238,53 +238,8 @@ fn main() -> io::Result<()> {
             let num_sequences = sequence_container.sequences.len();
             info!("Number of sequences: {}", num_sequences);
 
-            info!("Creating initial suffix tree");
-            let mut suffix_tree = suffixtree::tree::SuffixTree::new(
-                alphabet_file,
-                sequence_container.sequences[0].sequence.len(),
-            );
-
-            for sequence in sequence_container.sequences.iter() {
-                info!(
-                    "Inserting sequence {} of length: {}",
-                    sequence_container.sequences.len(),
-                    sequence.sequence.len()
-                );
-                suffix_tree.insert_string(&sequence.sequence, *suffix_links, true);
-            }
-
-            info!("Suffix tree created");
-
-            let mut lcs_length: Array2<usize> =
-                Array2::from_shape_fn((num_sequences, num_sequences).f(), |_| (0));
-
-            lcs_length
-                .axis_iter_mut(Axis(0))
-                .enumerate()
-                .for_each(|(j, mut row)| {
-                    row.indexed_iter_mut().for_each(|(i, similarity_score)| {
-                        // skip if i > j
-                        if i > j {
-                            return;
-                        }
-
-                        // get initial LCS on entire sequences
-                        let (_, _, lcs_length) = suffix_tree.get_lcs(i, j);
-                        *similarity_score = lcs_length;
-
-                        info!(
-                            "Getting LCS for sequences ({} and {}) of length {}, and {} -> LCS: {}",
-                            i,
-                            j,
-                            sequence_container.sequences[i].sequence.len(),
-                            sequence_container.sequences[j].sequence.len(),
-                            lcs_length
-                        );
-                    });
-                });
-
-            let mut similarity_matrix: Array2<(usize, usize, usize)> =
-                Array2::from_shape_fn((num_sequences, num_sequences).f(), |_| (0, 0, 0));
+            let mut similarity_matrix: Array2<(usize, usize, usize, usize)> =
+                Array2::from_shape_fn((num_sequences, num_sequences).f(), |_| (0, 0, 0, 0));
 
             // configure thread pool for concurrent processing
             rayon::ThreadPoolBuilder::new()
@@ -309,9 +264,6 @@ fn main() -> io::Result<()> {
                                 return;
                             }
 
-                            // get initial LCS on entire sequences
-                            let (start_i, start_j, lcs_length) = suffix_tree.get_lcs(i, j);
-
                             let get_matches = |s1: &String, s2: &String| {
                                 let mut st = suffixtree::tree::SuffixTree::new(
                                     alphabet_file,
@@ -328,13 +280,12 @@ fn main() -> io::Result<()> {
 
                             // we're going to emulate recursion here
                             let mut stack: Vec<(usize, usize, usize, String, String)> = Vec::new();
-                            stack.push((
-                                lcs_length,
-                                start_i,
-                                start_j,
-                                sequence_container.sequences[i].sequence.clone(),
-                                sequence_container.sequences[j].sequence.clone(),
+                            stack.push(get_matches(
+                                &sequence_container.sequences[i].sequence,
+                                &sequence_container.sequences[j].sequence,
                             ));
+
+                            let first_lcs_length = stack[0].0;
 
                             // basically do a DFS
                             let mut score = 0;
@@ -360,6 +311,7 @@ fn main() -> io::Result<()> {
                                 score,
                                 sequence_container.sequences[i].sequence.len(),
                                 sequence_container.sequences[j].sequence.len(),
+                                first_lcs_length,
                             );
                         });
                 });
@@ -398,7 +350,7 @@ fn main() -> io::Result<()> {
                 // first row is the sequence index
                 write!(out_file, "{}\t", row_idx)?;
                 print!("{}\t", row_idx);
-                for (score, _len1, _len2) in row.iter() {
+                for (score, _len1, _len2, _) in row.iter() {
                     write!(out_file, "{}\t", score)?;
                     print!("{}\t", score);
                 }
@@ -415,11 +367,11 @@ fn main() -> io::Result<()> {
             }
             println!("");
             let mut row_idx = 0;
-            for row in lcs_length.axis_iter(Axis(0)) {
+            for row in similarity_matrix.axis_iter(Axis(0)) {
                 // first row is the sequence index
                 print!("{}\t", row_idx);
-                for lcs_length in row.iter() {
-                    print!("{}\t", lcs_length);
+                for cell in row.iter() {
+                    print!("{}\t", cell.3);
                 }
                 println!("");
                 row_idx += 1;

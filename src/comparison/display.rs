@@ -4,7 +4,7 @@ fn percentage(num: usize, total: usize) -> f64 {
     (num as f64 / total as f64) * 100.0
 }
 
-pub fn print_similarity_matrix(similarity_matrix: &ndarray::Array2<(usize, usize, usize)>) {
+pub fn print_similarity_matrix(similarity_matrix: &ndarray::Array2<(usize, usize, usize, usize)>) {
     // print columns
     print!("  ");
     for i in 0..similarity_matrix.ncols() {

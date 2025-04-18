@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test_suffixtree {
 
-    use genomics_rs::sequence::{self, SequenceContainer, SequenceOperations};
+    use genomics_rs::sequence::{SequenceContainer, SequenceOperations};
     use genomics_rs::suffixtree::tree::SuffixTree;
 
     #[test]
@@ -223,7 +223,7 @@ mod test_suffixtree {
             sequences: Vec::new(),
         };
 
-        sequence_container.from_fasta("test_data/Slyco.fasta");
+        sequence_container.from_fasta("test_data/Covid_USA-CA4.fasta");
 
         let mut suffix_tree = SuffixTree::new("alphabets/dna.txt", 200000);
         suffix_tree.insert_string(&sequence_container.sequences[0].sequence, true, true);
