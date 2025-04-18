@@ -84,10 +84,6 @@ struct CliArgs {
 }
 
 fn main() -> io::Result<()> {
-    if cfg!(windows) {
-        control::set_virtual_terminal(true).unwrap();
-    }
-
     // parse cli args
     let args = CliArgs::parse();
 
