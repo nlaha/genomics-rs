@@ -16,9 +16,15 @@
         }
       },
       "env": {
-        "RUST_LOG": "trace"
+        "RUST_LOG": "info"
       },
-      "args": [],
+      "args": [
+        "compare",
+        "--alphabet-file",
+        "alphabets/dna.txt",
+        "--fasta-dir",
+        "comparison_data/"
+      ],
       "cwd": "${workspaceFolder}"
     },
     {

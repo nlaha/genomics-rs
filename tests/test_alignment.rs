@@ -12,9 +12,9 @@ const TEST_CONFIG: Config = Config {
 
 #[cfg(test)]
 mod test_alignment {
-    use genomics_rs::alignment::algo::{AlignedSequences, AlignmentChoice::*};
+    use genomics_rs::alignment::algo::AlignmentChoice::*;
     use genomics_rs::{
-        alignment::{self, algo::AlignmentChoice},
+        alignment::{self},
         sequence::{Sequence, SequenceContainer},
     }; // Import enum variants
 
@@ -36,8 +36,9 @@ mod test_alignment {
             sequences: vec![s1, s2],
         };
 
-        let aligned_sequences: AlignedSequences =
-            alignment::algo::align_sequences(&sc, &TEST_CONFIG.scores, false);
+        let (alignment_table, _) =
+            alignment::algo::alignment_table(&sc, &TEST_CONFIG.scores, false, false);
+        let aligned_sequences = alignment::algo::retrace(&sc, alignment_table, false);
 
         println!("{}", aligned_sequences);
         assert_eq!(aligned_sequences.score, 4);
@@ -67,8 +68,9 @@ mod test_alignment {
             sequences: vec![s1, s2],
         };
 
-        let aligned_sequences: AlignedSequences =
-            alignment::algo::align_sequences(&sc, &TEST_CONFIG.scores, false);
+        let (alignment_table, _) =
+            alignment::algo::alignment_table(&sc, &TEST_CONFIG.scores, false, false);
+        let aligned_sequences = alignment::algo::retrace(&sc, alignment_table, false);
 
         println!("{}", aligned_sequences);
         assert_eq!(aligned_sequences.matches, 3);
@@ -103,8 +105,9 @@ mod test_alignment {
             sequences: vec![s1, s2],
         };
 
-        let aligned_sequences: AlignedSequences =
-            alignment::algo::align_sequences(&sc, &TEST_CONFIG.scores, false);
+        let (alignment_table, _) =
+            alignment::algo::alignment_table(&sc, &TEST_CONFIG.scores, false, false);
+        let aligned_sequences = alignment::algo::retrace(&sc, alignment_table, false);
 
         println!("{}", aligned_sequences);
         assert_eq!(aligned_sequences.matches, 12);

@@ -35,12 +35,13 @@ pub struct SequenceContainer {
 
 pub trait SequenceOperations {
     fn from_fasta(&mut self, filepath: &str);
-    fn is_match(&self, i: usize, j: usize) -> bool;
+    fn is_match(&self, i: usize, j: usize, reverse_sequences: bool) -> bool;
 }
 
 impl SequenceOperations for SequenceContainer {
     /// Load one or more sequences from a FASTA file.
     /// * `filepath` - The path to the FASTA file.
+    /// * `push` - If true, push the sequences to the container.
     fn from_fasta(&mut self, filepath: &str) {
         let mut sequences: Vec<Sequence> = Vec::new();
         let mut sequence_name: Option<String> = None;
@@ -57,7 +58,11 @@ impl SequenceOperations for SequenceContainer {
                 if line.starts_with(">") {
                     // get the name minus the '>'
                     let name: String = line[1..].trim().to_string();
-                    info!("Sequence Found: {}", name);
+                    info!(
+                        "Sequence Found (ID: {}): {}",
+                        self.sequences.len() + sequences.len(),
+                        filepath,
+                    );
                     sequences.push(Sequence {
                         name: name.clone(),
                         sequence: String::new(),
@@ -68,7 +73,9 @@ impl SequenceOperations for SequenceContainer {
                     if let Some(_) = sequence_name {
                         // trim any whitespace in the line and append to the current sequence
                         let sequence = sequences.last_mut().unwrap();
-                        sequence.sequence.push_str(&line.trim());
+                        sequence
+                            .sequence
+                            .push_str(&line.trim().replace('\n', "").replace("\r\n", ""));
                     } else {
                         warn!("Sequence data found without a header");
                     }
@@ -84,10 +91,26 @@ impl SequenceOperations for SequenceContainer {
             debug!("  {}: {} bases", name, sequence.len());
         }
 
-        self.sequences = sequences;
+        self.sequences.append(&mut sequences);
     }
 
-    fn is_match(&self, i: usize, j: usize) -> bool {
-        self.sequences[0].sequence.bytes().nth(i) == self.sequences[1].sequence.bytes().nth(j)
+    /**
+     * Check if the characters at the given indices in the two sequences match.
+     * The indices are processed based on the reverse_sequences flag.
+     * If reverse_sequences is true, the indices are reversed before checking for a match.
+     */
+    fn is_match(&self, i: usize, j: usize, reverse_sequences: bool) -> bool {
+        let i_processed = if reverse_sequences {
+            self.sequences[1].sequence.len() - i
+        } else {
+            i
+        };
+        let j_processed = if reverse_sequences {
+            self.sequences[0].sequence.len() - j
+        } else {
+            j
+        };
+        self.sequences[0].sequence.bytes().nth(i_processed)
+            == self.sequences[1].sequence.bytes().nth(j_processed)
     }
 }

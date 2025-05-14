@@ -1,6 +1,10 @@
 use std::{
     ops::Add,
-    simd::{i64x4, num::SimdInt},
+    simd::{
+        i64x4,
+        num::{SimdInt, SimdUint},
+        usizex4,
+    },
 };
 
 use log::{debug, error, info, warn};
@@ -9,7 +13,7 @@ use num::Zero;
 use spinoff::{spinners, Color, Spinner};
 
 use crate::{
-    alignment::display::print_sequence_table,
+    alignment::display::print_alignment_table,
     config::Scores,
     sequence::{Sequence, SequenceContainer, SequenceOperations},
 };
@@ -24,6 +28,10 @@ pub struct AlignmentCell {
     pub insert_score: i64,
     pub delete_score: i64,
     pub sub_score: i64,
+
+    pub insert_matches: usize,
+    pub delete_matches: usize,
+    pub sub_matches: usize,
 }
 
 impl Add for AlignmentCell {
@@ -34,6 +42,10 @@ impl Add for AlignmentCell {
             insert_score: self.insert_score + other.insert_score,
             delete_score: self.delete_score + other.delete_score,
             sub_score: self.sub_score + other.sub_score,
+
+            insert_matches: self.insert_matches + other.insert_matches,
+            delete_matches: self.delete_matches + other.delete_matches,
+            sub_matches: self.sub_matches + other.sub_matches,
         }
     }
 }
@@ -44,23 +56,37 @@ impl Zero for AlignmentCell {
             insert_score: 0,
             delete_score: 0,
             sub_score: 0,
+
+            insert_matches: 0,
+            delete_matches: 0,
+            sub_matches: 0,
         }
     }
 
     fn is_zero(&self) -> bool {
-        self.insert_score == 0 && self.delete_score == 0 && self.sub_score == 0
+        self.insert_score == 0
+            && self.delete_score == 0
+            && self.sub_score == 0
+            && self.insert_matches == 0
+            && self.delete_matches == 0
+            && self.sub_matches == 0
     }
 
     fn set_zero(&mut self) {
         self.insert_score = 0;
         self.delete_score = 0;
         self.sub_score = 0;
+
+        self.insert_matches = 0;
+        self.delete_matches = 0;
+        self.sub_matches = 0;
     }
 }
 
 /// Handles score calculation for alignment cells
 pub trait ComputeScore {
     fn score_max(&self, i_mod: i64, s_mod: i64, d_mod: i64, is_local: bool) -> i64;
+    fn max_matches(&self) -> usize;
 }
 
 impl ComputeScore for AlignmentCell {
@@ -78,6 +104,20 @@ impl ComputeScore for AlignmentCell {
         ]);
 
         v.reduce_max()
+    }
+
+    /**
+     * Finds the maximum number of matches in the cell from each direction
+     */
+    fn max_matches(&self) -> usize {
+        let v: std::simd::Simd<usize, 4> = usizex4::from_array([
+            self.insert_matches,
+            self.sub_matches,
+            self.delete_matches,
+            0,
+        ]);
+
+        v.reduce_max() as usize
     }
 }
 
@@ -108,11 +148,15 @@ pub struct AlignedSequences {
 /// Perform global alignment of two sequences
 /// * `sequence_container` - container struct containing two sequences
 /// * `scores` - scoring parameters
-pub fn align_sequences(
+pub fn alignment_table(
     sequence_container: &SequenceContainer,
     scores: &Scores,
     is_local: bool,
-) -> AlignedSequences {
+    reverse_sequences: bool,
+) -> (Array2<AlignmentCell>, usize) {
+    let mut maximum_score = i64::MIN;
+    let mut max_cell = (0, 0);
+
     // if more than two sequences are found
     if sequence_container.sequences.len() > 2 {
         warn!("More than two sequences found. Only the first two will be used.");
@@ -125,16 +169,16 @@ pub fn align_sequences(
     let s2_len = sequence_container.sequences[1].sequence.len();
 
     // create 2D array to store dynamic programming results
-    let mut sequence_table: Array2<AlignmentCell> = Array2::zeros((s1_len + 1, s2_len + 1).f());
+    let mut alignment_table: Array2<AlignmentCell> = Array2::zeros((s1_len + 1, s2_len + 1).f());
 
     // log
-    info!("Sequence table shape: {:?}", sequence_table.shape());
+    info!("Sequence table shape: {:?}", alignment_table.shape());
     info!(
         "Sequence table size (KB): {}",
-        sequence_table.len() * std::mem::size_of::<AlignmentCell>() / 1024
+        alignment_table.len() * std::mem::size_of::<AlignmentCell>() / 1024
     );
 
-    let mut sequence_table_spinner = Spinner::new(
+    let mut alignment_table_spinner = Spinner::new(
         spinners::Dots,
         "Computing sequence table...",
         Color::Magenta,
@@ -146,33 +190,44 @@ pub fn align_sequences(
     // iterate through alignment table and fill in scores
     for i in 0..s1_len + 1 {
         for j in 0..s2_len + 1 {
-            sequence_table[[i, j]] = match (i, j) {
+            alignment_table[[i, j]] = match (i, j) {
                 // origin
                 (0, 0) => AlignmentCell {
                     insert_score: 0,
                     delete_score: 0,
                     sub_score: 0,
+                    insert_matches: 0,
+                    delete_matches: 0,
+                    sub_matches: 0,
                 },
                 // column
                 (i, 0) => AlignmentCell {
                     insert_score: negative_inf,
                     delete_score: scores.h + (i as i64 * scores.g),
                     sub_score: negative_inf,
+                    insert_matches: 0,
+                    delete_matches: 0,
+                    sub_matches: 0,
                 },
                 // row
                 (0, j) => AlignmentCell {
                     insert_score: scores.h + (j as i64 * scores.g),
                     delete_score: negative_inf,
                     sub_score: negative_inf,
+                    insert_matches: 0,
+                    delete_matches: 0,
+                    sub_matches: 0,
                 },
                 (i, j) => {
                     // recurrence relationships for S, D and I
-                    let top_left = sequence_table[[i - 1, j - 1]];
-                    let left = sequence_table[[i - 1, j]];
-                    let top = sequence_table[[i, j - 1]];
+                    let top_left = alignment_table[[i - 1, j - 1]];
+                    let left = alignment_table[[i - 1, j]];
+                    let top = alignment_table[[i, j - 1]];
+
+                    let is_match = sequence_container.is_match(i - 1, j - 1, reverse_sequences);
 
                     // build alignment cell struct
-                    AlignmentCell {
+                    let cell = AlignmentCell {
                         insert_score: top.score_max(
                             scores.g,
                             scores.h + scores.g,
@@ -187,11 +242,26 @@ pub fn align_sequences(
                             is_local,
                         ),
 
-                        sub_score: match sequence_container.is_match(i - 1, j - 1) {
+                        sub_score: match is_match {
                             true => scores.s_match + top_left.score_max(0, 0, 0, is_local),
                             false => scores.s_mismatch + top_left.score_max(0, 0, 0, is_local),
                         },
+
+                        insert_matches: top.max_matches(),
+                        delete_matches: left.max_matches(),
+                        sub_matches: match is_match {
+                            true => top_left.max_matches() + 1,
+                            false => top_left.max_matches(),
+                        },
+                    };
+
+                    let max_cell_score = cell.score_max(0, 0, 0, is_local);
+                    if maximum_score < max_cell_score {
+                        max_cell = (i, j);
+                        maximum_score = max_cell_score;
                     }
+
+                    cell
                 }
             };
         }
@@ -199,24 +269,24 @@ pub fn align_sequences(
 
     let end_table_init: std::time::Instant = std::time::Instant::now();
 
-    sequence_table_spinner.success("Sequence table computed");
+    alignment_table_spinner.success("Sequence table computed");
 
     info!(
         "Table initialization complete, time taken: {}us",
         (end_table_init - start_table_init).as_micros()
     );
 
-    let aligned_sequences = retrace(sequence_container, sequence_table, is_local);
+    let matches_at_max = alignment_table[max_cell].max_matches();
 
-    return aligned_sequences;
+    return (alignment_table, matches_at_max);
 }
 
 /// Performs a retrace of the optimal alignment path from the sequence table
 /// * `sequence_container` - container struct containing two sequences
-/// * `sequence_table` - the dynamic programming table
-fn retrace(
+/// * `alignment_table` - the dynamic programming table
+pub fn retrace(
     sequence_container: &SequenceContainer,
-    sequence_table: ndarray::Array2<AlignmentCell>,
+    alignment_table: ndarray::Array2<AlignmentCell>,
     is_local: bool,
 ) -> AlignedSequences {
     let mut retrace_spinner = Spinner::new(
@@ -238,7 +308,7 @@ fn retrace(
         false => (s1_len, s2_len),
         // get coordinates of the highest scoring cell
         true => {
-            sequence_table
+            alignment_table
                 // get indexed iter that gives us (x,y), cell
                 .indexed_iter()
                 // max by lambda that compares the score of the cell
@@ -258,7 +328,7 @@ fn retrace(
         s1: sequence_container.sequences[0].clone(),
         s2: sequence_container.sequences[1].clone(),
         alignment: Vec::new(),
-        score: sequence_table[[i, j]].score_max(0, 0, 0, is_local),
+        score: alignment_table[[i, j]].score_max(0, 0, 0, is_local),
         matches: 0,
         mismatches: 0,
         gap_extensions: 0,
@@ -267,7 +337,7 @@ fn retrace(
 
     let mut last_choice = AlignmentChoice::Match;
     loop {
-        let cell = sequence_table[[i, j]];
+        let cell = alignment_table[[i, j]];
 
         // get the score of the current cell
         let max = cell.score_max(0, 0, 0, is_local);
@@ -281,7 +351,7 @@ fn retrace(
         let (i_opt, j_opt) = match max {
             // top_left move
             val if val == cell.sub_score => {
-                if sequence_container.is_match(i, j) {
+                if sequence_container.is_match(i, j, false) {
                     last_choice = AlignmentChoice::Match;
                     aligned_sequences.matches += 1;
                     aligned_sequences
@@ -365,7 +435,7 @@ fn retrace(
         aligned_sequences.alignment.len()
     );
 
-    print_sequence_table(&aligned_sequences, &sequence_table);
+    print_alignment_table(&aligned_sequences, &alignment_table);
 
     aligned_sequences
 }

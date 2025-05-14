@@ -4,15 +4,21 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+bitvec = "1.0.1"
 bytemuck = "1.21.0"
 clap = { version = "4.5.28", features = ["derive"] }
 colored = "3.0.0"
+graphviz-rust = "0.9.3"
 log = "0.4.25"
-ndarray = "0.16.1"
+ndarray = { version = "0.16.1", features = ["rayon"] }
 num = "0.4.3"
+petgraph = "0.7.1"
 pretty_env_logger = "0.5.0"
+rayon = "1.10.0"
+regex = "1.11.1"
 serde = "1.0.217"
 serde_derive = "1.0.217"
+slab = "0.4.9"
 spinoff = "0.8.0"
 toml = "0.8.19"
 
@@ -25,7 +31,11 @@ opt-level = 0
 debug = true
 
 [profile.release]
+strip = "debuginfo"
 opt-level = 3
 codegen-units = 1
 lto = false
+
+[profile.profiling]
+inherits = "release"
 debug = true
